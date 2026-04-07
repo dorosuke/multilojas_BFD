@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Painel do Vendedor{% endblock %}
+
+{% block content %}
+<div class="box">
+    <h1>Painel do vendedor</h1>
+    <p class="muted">Rascunho da area do vendedor.</p>
+</div>
+
+<div class="box">
+    <h2>Resumo</h2>
+    <div class="grid">
+        {% for stat in stats %}
+        <div class="item">
+            <strong>{{ stat.label }}</strong>
+            <p>{{ stat.value }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="box">
+    <h2>Tarefas</h2>
+    <div class="grid">
+        {% for task in tasks %}
+        <div class="item">{{ task }}</div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

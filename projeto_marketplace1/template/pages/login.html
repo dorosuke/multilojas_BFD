@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="box">
+    <h1>Login</h1>
+    <p class="muted">Rascunho simples da tela de login.</p>
+    <form>
+        <label>
+            E-mail
+            <input type="email" placeholder="email@exemplo.com">
+        </label>
+        <label>
+            Senha
+            <input type="password" placeholder="Senha">
+        </label>
+    </form>
+    <div class="actions">
+        <a href="/api/front/comprador/">Entrar</a>
+        <a href="/api/front/recuperar-senha/">Recuperar senha</a>
+    </div>
+</div>
+{% endblock %}

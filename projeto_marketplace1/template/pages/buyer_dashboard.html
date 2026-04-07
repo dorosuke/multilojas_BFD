@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Area do Comprador{% endblock %}
+
+{% block content %}
+<div class="box">
+    <h1>Area do comprador</h1>
+    <p class="muted">{{ next_step }}</p>
+</div>
+
+<div class="box">
+    <h2>Pedidos</h2>
+    <div class="grid">
+        {% for order in orders %}
+        <div class="item">
+            <strong>{{ order.code }}</strong>
+            <p>{{ order.status }}</p>
+            <p class="muted">{{ order.total }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

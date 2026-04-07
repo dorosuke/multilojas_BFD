@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Produto{% endblock %}
+
+{% block content %}
+<div class="box">
+    <h1>{{ product.name }}</h1>
+    <p>{{ product.description }}</p>
+    <p>Loja: {{ product.store }}</p>
+    <p>Preco: {{ product.price }}</p>
+    <p>Estoque: {{ product.stock }}</p>
+</div>
+
+<div class="box">
+    <h2>Variacoes</h2>
+    <div class="grid">
+        {% for item in product.variations %}
+        <div class="item">Tamanho {{ item }}</div>
+        {% endfor %}
+        {% for color in product.colors %}
+        <div class="item">{{ color }}</div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="box">
+    <h2>Avaliacoes</h2>
+    <div class="grid">
+        {% for review in reviews %}
+        <div class="item">
+            <strong>{{ review.author }}</strong>
+            <p>{{ review.rating }}</p>
+            <p class="muted">{{ review.comment }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

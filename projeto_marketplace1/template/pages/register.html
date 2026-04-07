@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Cadastro{% endblock %}
+
+{% block content %}
+<div class="box">
+    <h1>Cadastro</h1>
+    <p class="muted">Rascunho simples da tela de cadastro.</p>
+    <form>
+        <label>
+            Nome
+            <input type="text" placeholder="Nome">
+        </label>
+        <label>
+            E-mail
+            <input type="email" placeholder="email@exemplo.com">
+        </label>
+        <label>
+            Tipo de conta
+            <select>
+                <option>Vendedor</option>
+                <option>Comprador</option>
+            </select>
+        </label>
+        <label>
+            Senha
+            <input type="password" placeholder="Senha">
+        </label>
+    </form>
+</div>
+{% endblock %}

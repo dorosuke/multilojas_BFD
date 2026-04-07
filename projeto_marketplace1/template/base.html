@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Projeto Marketplace{% endblock %}</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f4f4;
+            color: #222;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: #fff;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+
+        .header-content {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 16px 20px;
+        }
+
+        h1, h2, h3 {
+            margin-top: 0;
+        }
+
+        nav {
+            margin-top: 10px;
+        }
+
+        nav a {
+            display: inline-block;
+            margin: 0 8px 8px 0;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            background: #fafafa;
+            color: #222;
+            text-decoration: none;
+        }
+
+        .box {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+        }
+
+        .item {
+            border: 1px dashed #bbb;
+            padding: 12px;
+            background: #fcfcfc;
+        }
+
+        .muted {
+            color: #666;
+        }
+
+        form {
+            display: grid;
+            gap: 12px;
+        }
+
+        label {
+            display: grid;
+            gap: 6px;
+        }
+
+        input,
+        select,
+        textarea {
+            padding: 10px;
+            border: 1px solid #bbb;
+            font: inherit;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .actions a {
+            display: inline-block;
+            margin-right: 8px;
+            margin-top: 8px;
+            padding: 8px 12px;
+            border: 1px solid #999;
+            background: #efefef;
+            color: #222;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <strong>Projeto Marketplace</strong>
+            <nav>
+                <a href="/">Inicio</a>
+                <a href="/api/front/busca/">Busca</a>
+                <a href="/api/front/login/">Login</a>
+                <a href="/api/front/cadastro/">Cadastro</a>
+                <a href="/api/front/recuperar-senha/">Recuperar senha</a>
+                <a href="/api/front/perfil/">Perfil</a>
+                <a href="/api/front/loja/moda-solar/">Loja</a>
+                <a href="/api/front/produto/vestido-floral/">Produto</a>
+                <a href="/api/front/vendedor/">Painel vendedor</a>
+                <a href="/api/front/comprador/">Area comprador</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

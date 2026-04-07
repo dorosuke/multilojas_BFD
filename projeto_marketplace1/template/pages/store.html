@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Loja{% endblock %}
+
+{% block content %}
+<div class="box">
+    <h1>{{ store.name }}</h1>
+    <p>{{ store.description }}</p>
+    <p class="muted">{{ store.city }} | {{ store.contact }}</p>
+</div>
+
+<div class="box">
+    <h2>Categorias</h2>
+    <div class="grid">
+        {% for category in store.categories %}
+        <div class="item">{{ category }}</div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="box">
+    <h2>Produtos</h2>
+    <div class="grid">
+        {% for product in products %}
+        <div class="item">
+            <strong>{{ product.name }}</strong>
+            <p class="muted">{{ product.price }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

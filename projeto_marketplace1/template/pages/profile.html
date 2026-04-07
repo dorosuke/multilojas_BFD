@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Perfil{% endblock %}
+
+{% block content %}
+<div class="box">
+    <h1>Perfil</h1>
+    <p class="muted">Rascunho simples da tela de perfil.</p>
+    <form>
+        <label>
+            Nome
+            <input type="text" value="Usuario Exemplo">
+        </label>
+        <label>
+            E-mail
+            <input type="email" value="usuario@exemplo.com">
+        </label>
+        <label>
+            Telefone
+            <input type="text" value="(00) 00000-0000">
+        </label>
+    </form>
+</div>
+{% endblock %}

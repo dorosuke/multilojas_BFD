@@ -1,0 +1,13 @@
+django
+djangorestframework
+djangorestframework-simplejwt
+django-cors-headers
+Pillow
+psycopg2-binary
+python-decouple
+cloudinary
+django-cloudinary-storage
+django-storages
+reportlab
+sendgrid
+dj-database-url
