@@ -1,6 +1,18 @@
 from django.shortcuts import render
+from rest_framework import permissions, status
 from rest_framework.views import APIView
 
+from .models import User
+from .serializers import (
+    LoginSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
+    ProfileSerializer,
+    ProfileUpdateSerializer,
+    RegistroCompradorSerializer,
+    RegistroVendedorSerializer,
+    build_auth_payload,
+)
 from .utils import api_response
 
 
@@ -26,9 +38,104 @@ class ApiRootView(APIView):
                 'version': 'base-inicial',
                 'endpoints': {
                     'health': '/api/health/',
+                    'registro_vendedor': '/api/auth/register/vendor/',
+                    'registro_comprador': '/api/auth/register/buyer/',
+                    'login': '/api/auth/login/',
+                    'perfil': '/api/auth/profile/',
                 },
             },
             message='Backend inicial configurado com sucesso.',
+        )
+
+
+class RegistroVendedorView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        serializer = RegistroVendedorSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return api_response(
+            data=build_auth_payload(user),
+            message='Vendedor cadastrado com sucesso.',
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class RegistroCompradorView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        serializer = RegistroCompradorSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return api_response(
+            data=build_auth_payload(user),
+            message='Comprador cadastrado com sucesso.',
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class LoginView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+        return api_response(
+            data=build_auth_payload(user),
+            message='Login realizado com sucesso.',
+        )
+
+
+class ProfileView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        return api_response(
+            data=ProfileSerializer(request.user).data,
+            message='Perfil carregado com sucesso.',
+        )
+
+    def put(self, request):
+        serializer = ProfileUpdateSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.update(request.user, serializer.validated_data)
+        return api_response(
+            data=ProfileSerializer(request.user).data,
+            message='Perfil atualizado com sucesso.',
+        )
+
+
+class PasswordResetRequestView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.save()
+        message = 'Se o e-mail existir, um link de recuperação foi gerado.'
+        return api_response(
+            data=payload or {},
+            message=message,
+        )
+
+
+class PasswordResetConfirmView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return api_response(
+            message='Senha redefinida com sucesso.',
         )
 
 
@@ -43,17 +150,6 @@ def home_page(request):
             {'name': 'Vestido Floral', 'store': 'Moda Solar', 'price': 'R$ 89,90'},
             {'name': 'Kit Velas Artesanais', 'store': 'Casa Aurora', 'price': 'R$ 49,90'},
             {'name': 'Cesta Gourmet', 'store': 'Sabor da Vila', 'price': 'R$ 129,90'},
-        ],
-        'steps': [
-            'Visitante descobre lojas e produtos',
-            'Comprador cria conta e entra na plataforma',
-            'Vendedor gerencia catalogo e pedidos',
-        ],
-        'features': [
-            'Busca unificada entre lojas',
-            'Vitrine publica por vendedor',
-            'Fluxo de autenticacao em templates',
-            'Base pronta para consumo da API',
         ],
     }
     return render(request, 'pages/home.html', context)
