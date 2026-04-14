@@ -90,33 +90,44 @@ Tambem existe uma rota raiz da API:
 GET /api/
 ```
 
-## Entregas das Sprints 1 e 2
+## Sobre o sistema
 
-Backend concluido neste recorte:
+O projeto e uma base de marketplace para pequenos empreendedores e compradores.
+Hoje o sistema ja possui a estrutura inicial do backend em Django REST Framework e um frontend em templates Django para os fluxos de autenticacao e perfil.
 
-- configuracao inicial do projeto Django + DRF
+O sistema trabalha com dois tipos de usuario:
+
+- vendedor
+- comprador
+
+## O que ja esta funcionando
+
+Backend:
+
+- configuracao inicial do projeto com Django + DRF
 - modelagem de `User`, `Vendedor` e `Comprador`
-- cadastro de vendedor em `/api/auth/register/vendor/`
-- cadastro de comprador em `/api/auth/register/buyer/`
-- login com JWT em `/api/auth/login/`
-- perfil autenticado em `/api/auth/profile/`
+- cadastro de vendedor
+- cadastro de comprador
+- login com JWT
+- consulta de perfil autenticado
+- atualizacao de perfil autenticado
 - recuperacao de senha com geracao de link
-- correcao do fluxo de redefinicao para abrir a tela web
+- resposta padronizada em JSON
 
-Frontend concluido neste recorte:
+Frontend:
 
-- pagina inicial atualizada para o estado da sprint
+- pagina inicial
 - tela de cadastro com alternancia entre vendedor e comprador
-- tela de login conectada a API
-- tela de recuperacao de senha com solicitacao e confirmacao
+- tela de login integrada com a API
+- tela de recuperacao de senha
 - tela de perfil protegida e editavel
 - persistencia simples da sessao no navegador com JWT
 
-## Como testar as funcionalidades das Sprints 1 e 2
+## Como testar o sistema atual
 
 1. Acesse `/api/front/cadastro/` e crie uma conta de vendedor ou comprador.
 2. Depois do cadastro, o usuario sera autenticado e redirecionado para `/api/front/perfil/`.
-3. Acesse `/api/front/login/` para entrar com uma conta ja existente.
+3. Acesse `/api/front/login/` para entrar com uma conta existente.
 4. Acesse `/api/front/perfil/` para consultar e editar os dados do usuario autenticado.
 5. Acesse `/api/front/recuperar-senha/` para solicitar o link de redefinicao.
 6. Use o `reset_link` retornado pela API para abrir a tela de nova senha no navegador.
