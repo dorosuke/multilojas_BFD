@@ -97,15 +97,6 @@
         <div id="profile-summary" class="form-grid">
             <div class="status info">As informacoes da conta serao exibidas aqui.</div>
         </div>
-
-        <div class="section">
-            <h3 style="margin-bottom:10px;">Organizacao do perfil</h3>
-            <ul class="list-clean muted">
-                {% for section in sections %}
-                <li><strong>{{ section.title }}</strong><br>{{ section.description }}</li>
-                {% endfor %}
-            </ul>
-        </div>
     </aside>
 </section>
 {% endblock %}
