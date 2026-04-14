@@ -4,14 +4,14 @@
 
 {% block content %}
 <section class="hero-card">
-    <span class="eyebrow">Sprint 1 e 2 ativas</span>
+    <span class="eyebrow">Marketplace MultiLojas</span>
     <div class="split">
         <div>
-            <p class="kicker">Fundacao validada</p>
-            <h1 style="margin:0 0 14px; font-size:clamp(2rem, 5vw, 3.8rem); line-height:1.02;">Autenticacao pronta para vendedor e comprador.</h1>
+            <p class="kicker">Ambiente inicial do sistema</p>
+            <h1 style="margin:0 0 14px; font-size:clamp(2rem, 5vw, 3.8rem); line-height:1.02;">Uma base profissional para vendedores e compradores.</h1>
             <p class="muted" style="font-size:1.05rem; max-width:640px;">
-                O backend de cadastro, login, recuperacao de senha e perfil ja esta conectado a uma interface real.
-                Agora voce consegue testar o fluxo principal do projeto em uma experiencia unica.
+                O sistema ja conta com autenticacao, recuperacao de senha e gerenciamento de perfil em uma interface integrada ao backend.
+                A base publica de lojas e produtos segue disponivel como demonstracao das proximas areas do marketplace.
             </p>
             <div class="inline-actions" style="margin-top:22px;">
                 <a class="button" href="/api/front/cadastro/">Criar conta</a>
@@ -21,7 +21,7 @@
         </div>
 
         <div class="card">
-            <p class="kicker">O que ficou fechado</p>
+            <p class="kicker">Recursos disponiveis</p>
             <div class="stats">
                 <div class="stat">
                     <span class="muted">Cadastro</span>
@@ -47,7 +47,7 @@
 <section class="section grid" style="grid-template-columns: 1.2fr 0.8fr;">
     <div class="card">
         <h2 class="section-title">Lojas em destaque</h2>
-        <p class="muted">Estas vitrines continuam como demonstracao visual para as proximas sprints.</p>
+        <p class="muted">Estas vitrines permanecem como demonstracao visual da area publica do marketplace.</p>
         <div class="grid">
             {% for store in featured_stores %}
             <article class="item">

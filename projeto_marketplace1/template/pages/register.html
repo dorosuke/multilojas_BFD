@@ -97,7 +97,7 @@
     </div>
 
     <aside class="card">
-        <p class="kicker">Cobertura da sprint 2</p>
+        <p class="kicker">Perfis de acesso</p>
         <h2 class="section-title">Campos por perfil</h2>
         <ul class="list-clean muted">
             <li>Vendedor: dados pessoais, loja, PIX, endereco e descricao.</li>
@@ -199,6 +199,7 @@
                     window.location.href = '/api/front/perfil/';
                 }, 500);
             } catch (error) {
+                App.showToast('Nao foi possivel concluir o cadastro.', 'error');
                 App.setFeedback(feedback, error.message, 'error');
             }
         });

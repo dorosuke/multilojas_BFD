@@ -325,6 +325,7 @@
             border-radius: 14px;
             border: 1px solid transparent;
             font-size: 0.95rem;
+            white-space: pre-line;
         }
 
         .status.info,
@@ -541,6 +542,32 @@
             };
 
             const normalizeError = (data) => {
+                const fieldLabels = {
+                    nome: 'Nome',
+                    email: 'E-mail',
+                    senha: 'Senha',
+                    telefone: 'Telefone',
+                    nome_loja: 'Nome da loja',
+                    descricao_loja: 'Descricao da loja',
+                    logo_url: 'Logo da loja',
+                    endereco_completo: 'Endereco completo',
+                    endereco_completo_vendedor: 'Endereco da loja',
+                    endereco_completo_comprador: 'Endereco de entrega',
+                    cnpj: 'CNPJ ou CPF',
+                    chave_pix: 'Chave PIX',
+                    cpf: 'CPF',
+                    uid: 'Identificador',
+                    token: 'Token',
+                    nova_senha: 'Nova senha',
+                    non_field_errors: 'Formulario',
+                    detail: 'Detalhe',
+                };
+
+                const formatEntry = (key, value) => {
+                    const label = fieldLabels[key] || key;
+                    return `${label}: ${value}`;
+                };
+
                 if (!data) {
                     return 'Nao foi possivel concluir a operacao.';
                 }
@@ -556,16 +583,16 @@
                 }
                 const values = [];
                 const source = data.errors || data;
-                Object.values(source).forEach((value) => {
+                Object.entries(source).forEach(([key, value]) => {
                     if (Array.isArray(value)) {
-                        values.push(value.join(' '));
+                        values.push(formatEntry(key, value.join(' ')));
                     } else if (typeof value === 'string') {
-                        values.push(value);
+                        values.push(formatEntry(key, value));
                     } else if (value && typeof value === 'object') {
-                        values.push(normalizeError(value));
+                        values.push(formatEntry(key, normalizeError(value)));
                     }
                 });
-                return values.filter(Boolean)[0] || 'Revise os dados enviados.';
+                return values.filter(Boolean).join('\n') || 'Revise os dados enviados.';
             };
 
             const showToast = (message, type = 'info') => {
