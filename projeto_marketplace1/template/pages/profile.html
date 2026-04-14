@@ -8,7 +8,7 @@
         <span class="eyebrow">Area protegida</span>
         <h1 style="margin-top:0;">Meu perfil</h1>
         <p class="muted">
-            Esta pagina consome o endpoint protegido de perfil e permite atualizar os dados conforme o tipo do usuario.
+            Gerencie os dados principais da sua conta em um unico lugar.
         </p>
 
         <div id="profile-loading" class="status info">Carregando dados do perfil...</div>
@@ -74,7 +74,7 @@
                         <input type="text" name="cpf">
                     </label>
                     <div class="status info">
-                        O endereco abaixo sera usado como base para futuras entregas.
+                        Mantenha suas informacoes sempre atualizadas.
                     </div>
                 </div>
                 <label>
@@ -92,14 +92,14 @@
     </div>
 
     <aside class="card">
-        <p class="kicker">Dados da conta</p>
-        <h2 class="section-title">Resumo rapido</h2>
+        <p class="kicker">Resumo da conta</p>
+        <h2 class="section-title">Visao geral</h2>
         <div id="profile-summary" class="form-grid">
-            <div class="status info">Os detalhes aparecem aqui assim que o perfil for carregado.</div>
+            <div class="status info">As informacoes da conta serao exibidas aqui.</div>
         </div>
 
         <div class="section">
-            <h3 style="margin-bottom:10px;">Blocos previstos</h3>
+            <h3 style="margin-bottom:10px;">Organizacao do perfil</h3>
             <ul class="list-clean muted">
                 {% for section in sections %}
                 <li><strong>{{ section.title }}</strong><br>{{ section.description }}</li>
@@ -238,6 +238,7 @@
                 App.setFeedback(feedback, response.message || 'Perfil atualizado com sucesso.', 'success');
                 App.showToast('Perfil atualizado com sucesso.', 'success');
             } catch (error) {
+                App.showToast('Nao foi possivel atualizar o perfil.', 'error');
                 App.setFeedback(feedback, error.message, 'error');
             }
         });

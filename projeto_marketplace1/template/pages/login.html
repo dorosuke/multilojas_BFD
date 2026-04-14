@@ -8,7 +8,7 @@
         <span class="eyebrow">Acesso seguro</span>
         <h1 style="margin-top:0;">Entrar na plataforma</h1>
         <p class="muted">
-            Use o e-mail e a senha cadastrados. O acesso gera JWT e libera a area protegida do perfil.
+            Informe seus dados para acessar sua conta.
         </p>
 
         <form id="login-form" class="form-grid" style="margin-top:20px;">
@@ -29,16 +29,15 @@
     </div>
 
     <aside class="card">
-        <p class="kicker">Depois do login</p>
-        <h2 class="section-title">O que acontece</h2>
+        <p class="kicker">Seja bem-vindo de volta</p>
+        <h2 class="section-title">Acesse sua area</h2>
         <ul class="list-clean muted">
-            <li>O token JWT fica salvo no navegador.</li>
-            <li>O menu troca automaticamente para a area autenticada.</li>
-            <li>Seu perfil pode ser consultado e atualizado.</li>
-            <li>O logout remove os dados locais da sessao.</li>
+            <li>mantenha seus dados pessoais atualizados</li>
+            <li>acompanhe as informacoes da sua conta em um unico lugar</li>
+            <li>retome o acesso rapidamente caso tenha esquecido a senha</li>
         </ul>
         <div class="status info" style="margin-top:18px;">
-            Se voce ainda nao tiver conta, use o cadastro com perfil de vendedor ou comprador.
+            Ainda nao tem conta? Crie seu acesso em poucos instantes.
         </div>
         <div class="actions" style="margin-top:16px;">
             <a class="button secondary" href="/api/front/cadastro/">Criar conta</a>
@@ -82,6 +81,7 @@
                     window.location.href = '/api/front/perfil/';
                 }, 500);
             } catch (error) {
+                App.showToast('Nao foi possivel realizar o login.', 'error');
                 App.setFeedback(feedback, error.message, 'error');
             }
         });
