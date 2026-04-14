@@ -3,132 +3,681 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Projeto Marketplace{% endblock %}</title>
+    <title>{% block title %}MultiLojas{% endblock %}</title>
     <style>
+        :root {
+            --bg: #f5efe4;
+            --surface: rgba(255, 251, 245, 0.88);
+            --surface-strong: #fffdf8;
+            --text: #2c241d;
+            --muted: #6f6257;
+            --line: rgba(95, 71, 53, 0.15);
+            --brand: #c45c2f;
+            --brand-dark: #7f3214;
+            --brand-soft: #f3d8c8;
+            --success: #236b4f;
+            --danger: #b23a32;
+            --shadow: 0 20px 40px rgba(83, 53, 29, 0.12);
+            --radius-lg: 28px;
+            --radius-md: 18px;
+            --radius-sm: 12px;
+            --max-width: 1120px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
         body {
             margin: 0;
-            font-family: Arial, sans-serif;
-            background: #f4f4f4;
-            color: #222;
+            font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, rgba(255, 205, 150, 0.75), transparent 30%),
+                radial-gradient(circle at right, rgba(209, 122, 81, 0.28), transparent 26%),
+                linear-gradient(180deg, #fcf6ed 0%, #f2eadc 100%);
+            min-height: 100vh;
         }
 
-        .container {
-            max-width: 960px;
+        a {
+            color: inherit;
+        }
+
+        .shell {
+            width: min(calc(100% - 32px), var(--max-width));
             margin: 0 auto;
-            padding: 20px;
         }
 
-        header {
-            background: #fff;
-            border-bottom: 1px solid #ddd;
-            margin-bottom: 20px;
+        .site-header {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            backdrop-filter: blur(16px);
+            background: rgba(252, 246, 237, 0.78);
+            border-bottom: 1px solid rgba(95, 71, 53, 0.08);
         }
 
-        .header-content {
-            max-width: 960px;
-            margin: 0 auto;
-            padding: 16px 20px;
+        .site-header-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+            padding: 18px 0;
         }
 
-        h1, h2, h3 {
-            margin-top: 0;
-        }
-
-        nav {
-            margin-top: 10px;
-        }
-
-        nav a {
-            display: inline-block;
-            margin: 0 8px 8px 0;
-            padding: 8px 12px;
-            border: 1px solid #ccc;
-            background: #fafafa;
-            color: #222;
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
             text-decoration: none;
         }
 
+        .brand-mark {
+            width: 44px;
+            height: 44px;
+            display: grid;
+            place-items: center;
+            border-radius: 15px;
+            background: linear-gradient(135deg, var(--brand), #e79f5d);
+            color: white;
+            font-weight: 700;
+            box-shadow: var(--shadow);
+        }
+
+        .brand-text strong,
+        .brand-text span {
+            display: block;
+        }
+
+        .brand-text span {
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .nav {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .nav a,
+        .nav button,
+        .button,
+        button {
+            appearance: none;
+            border: 0;
+            text-decoration: none;
+            font: inherit;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+        }
+
+        .nav a,
+        .nav button {
+            padding: 11px 14px;
+            border-radius: 999px;
+            color: var(--muted);
+            background: rgba(255, 255, 255, 0.55);
+            border: 1px solid transparent;
+        }
+
+        .nav a:hover,
+        .nav button:hover,
+        .button:hover,
+        button:hover {
+            transform: translateY(-1px);
+        }
+
+        .button,
+        button {
+            padding: 13px 18px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--brand), #e18a56);
+            color: white;
+            box-shadow: 0 14px 28px rgba(167, 83, 47, 0.22);
+        }
+
+        .button.secondary,
+        button.secondary {
+            color: var(--brand-dark);
+            background: var(--brand-soft);
+            box-shadow: none;
+        }
+
+        .button.ghost,
+        button.ghost {
+            background: transparent;
+            color: var(--muted);
+            border: 1px solid var(--line);
+            box-shadow: none;
+        }
+
+        .page {
+            padding: 34px 0 56px;
+        }
+
+        .hero-card,
+        .card,
+        .box,
+        .item {
+            background: var(--surface);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            box-shadow: var(--shadow);
+            border-radius: var(--radius-lg);
+        }
+
+        .hero-card {
+            overflow: hidden;
+            padding: 34px;
+            position: relative;
+        }
+
+        .hero-card::after {
+            content: "";
+            position: absolute;
+            inset: auto -50px -50px auto;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(228, 153, 99, 0.35), transparent 65%);
+        }
+
+        .card,
         .box {
-            background: #fff;
-            border: 1px solid #ddd;
-            padding: 16px;
-            margin-bottom: 16px;
+            padding: 26px;
+        }
+
+        .section {
+            margin-top: 24px;
+        }
+
+        .section-title {
+            margin: 0 0 12px;
+            font-size: 1.4rem;
+        }
+
+        .muted {
+            color: var(--muted);
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--brand-dark);
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 14px;
         }
 
         .grid {
             display: grid;
+            gap: 18px;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 12px;
         }
 
         .item {
-            border: 1px dashed #bbb;
-            padding: 12px;
-            background: #fcfcfc;
+            padding: 20px;
         }
 
-        .muted {
-            color: #666;
-        }
-
-        form {
+        .stats {
             display: grid;
-            gap: 12px;
+            gap: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        }
+
+        .stat {
+            padding: 18px;
+            border-radius: var(--radius-md);
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid rgba(95, 71, 53, 0.08);
+        }
+
+        .stat strong {
+            display: block;
+            font-size: 1.35rem;
+            margin-top: 6px;
+        }
+
+        .form-grid {
+            display: grid;
+            gap: 16px;
+        }
+
+        .form-grid.two-col {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
         label {
             display: grid;
-            gap: 6px;
+            gap: 8px;
+            font-weight: 600;
+            font-size: 0.96rem;
         }
 
         input,
         select,
         textarea {
-            padding: 10px;
-            border: 1px solid #bbb;
-            font: inherit;
             width: 100%;
-            box-sizing: border-box;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.92);
+            padding: 14px 15px;
+            font: inherit;
+            color: var(--text);
         }
 
         textarea {
-            min-height: 100px;
+            min-height: 116px;
             resize: vertical;
         }
 
-        .actions a {
-            display: inline-block;
-            margin-right: 8px;
-            margin-top: 8px;
+        .inline-actions,
+        .actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .split {
+            display: grid;
+            gap: 24px;
+            grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+            align-items: start;
+        }
+
+        .tabs {
+            display: inline-grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            padding: 8px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(95, 71, 53, 0.08);
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 12px 16px;
+            border-radius: 12px;
+            background: transparent;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, var(--brand), #e18a56);
+            color: white;
+        }
+
+        .status,
+        .feedback {
+            padding: 14px 16px;
+            border-radius: 14px;
+            border: 1px solid transparent;
+            font-size: 0.95rem;
+        }
+
+        .status.info,
+        .feedback.info {
+            background: rgba(255, 255, 255, 0.72);
+            border-color: rgba(95, 71, 53, 0.08);
+        }
+
+        .status.success,
+        .feedback.success {
+            background: rgba(35, 107, 79, 0.1);
+            border-color: rgba(35, 107, 79, 0.25);
+            color: var(--success);
+        }
+
+        .status.error,
+        .feedback.error {
+            background: rgba(178, 58, 50, 0.09);
+            border-color: rgba(178, 58, 50, 0.22);
+            color: var(--danger);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .list-clean {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: grid;
+            gap: 12px;
+        }
+
+        .chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .chip {
             padding: 8px 12px;
-            border: 1px solid #999;
-            background: #efefef;
-            color: #222;
-            text-decoration: none;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.74);
+            border: 1px solid rgba(95, 71, 53, 0.08);
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .kicker {
+            color: var(--brand-dark);
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            font-size: 0.78rem;
+        }
+
+        #toast-root {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            display: grid;
+            gap: 10px;
+            z-index: 40;
+        }
+
+        .toast {
+            min-width: 240px;
+            max-width: 360px;
+            padding: 14px 16px;
+            border-radius: 16px;
+            color: white;
+            box-shadow: var(--shadow);
+            animation: slideUp 0.24s ease;
+        }
+
+        .toast.info {
+            background: #5f4735;
+        }
+
+        .toast.success {
+            background: var(--success);
+        }
+
+        .toast.error {
+            background: var(--danger);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(14px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 900px) {
+            .site-header-inner,
+            .split,
+            .form-grid.two-col {
+                grid-template-columns: 1fr;
+                display: grid;
+            }
+
+            .site-header-inner {
+                justify-content: stretch;
+            }
+
+            .nav {
+                justify-content: flex-start;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .shell {
+                width: min(calc(100% - 20px), var(--max-width));
+            }
+
+            .page {
+                padding-top: 20px;
+            }
+
+            .hero-card,
+            .card,
+            .box,
+            .item {
+                border-radius: 22px;
+            }
+
+            .hero-card,
+            .card,
+            .box {
+                padding: 20px;
+            }
+
+            .nav a,
+            .nav button {
+                width: 100%;
+                justify-content: center;
+                text-align: center;
+            }
         }
     </style>
+    {% block extra_head %}{% endblock %}
 </head>
 <body>
-    <header>
-        <div class="header-content">
-            <strong>Projeto Marketplace</strong>
-            <nav>
+    <header class="site-header">
+        <div class="shell site-header-inner">
+            <a class="brand" href="/">
+                <span class="brand-mark">ML</span>
+                <span class="brand-text">
+                    <strong>MultiLojas</strong>
+                    <span>Marketplace para pequenos empreendedores</span>
+                </span>
+            </a>
+
+            <nav class="nav">
                 <a href="/">Inicio</a>
-                <a href="/api/front/busca/">Busca</a>
-                <a href="/api/front/login/">Login</a>
                 <a href="/api/front/cadastro/">Cadastro</a>
-                <a href="/api/front/recuperar-senha/">Recuperar senha</a>
-                <a href="/api/front/perfil/">Perfil</a>
-                <a href="/api/front/loja/moda-solar/">Loja</a>
-                <a href="/api/front/produto/vestido-floral/">Produto</a>
-                <a href="/api/front/vendedor/">Painel vendedor</a>
-                <a href="/api/front/comprador/">Area comprador</a>
+                <a href="/api/front/login/" data-guest-link>Login</a>
+                <a href="/api/front/recuperar-senha/" data-guest-link>Recuperar senha</a>
+                <a href="/api/front/perfil/" data-auth-link class="hidden">Perfil</a>
+                <button type="button" class="ghost hidden" data-logout-button>Sair</button>
             </nav>
         </div>
     </header>
 
-    <main class="container">
-        {% block content %}{% endblock %}
+    <main class="page">
+        <div class="shell">
+            {% block content %}{% endblock %}
+        </div>
     </main>
+
+    <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
+
+    <script>
+        window.MarketplaceApp = (() => {
+            const storageKeys = {
+                access: 'marketplace.access',
+                refresh: 'marketplace.refresh',
+                user: 'marketplace.user',
+            };
+
+            const getAccessToken = () => localStorage.getItem(storageKeys.access);
+            const getRefreshToken = () => localStorage.getItem(storageKeys.refresh);
+
+            const getStoredUser = () => {
+                const raw = localStorage.getItem(storageKeys.user);
+                if (!raw) {
+                    return null;
+                }
+                try {
+                    return JSON.parse(raw);
+                } catch (error) {
+                    return null;
+                }
+            };
+
+            const saveAuth = (payload) => {
+                localStorage.setItem(storageKeys.access, payload.access);
+                localStorage.setItem(storageKeys.refresh, payload.refresh);
+                localStorage.setItem(storageKeys.user, JSON.stringify(payload.user));
+                hydrateNav();
+            };
+
+            const clearAuth = () => {
+                localStorage.removeItem(storageKeys.access);
+                localStorage.removeItem(storageKeys.refresh);
+                localStorage.removeItem(storageKeys.user);
+                hydrateNav();
+            };
+
+            const normalizeError = (data) => {
+                if (!data) {
+                    return 'Nao foi possivel concluir a operacao.';
+                }
+                if (typeof data === 'string') {
+                    return data;
+                }
+                if (data.message) {
+                    return data.message;
+                }
+                const detail = data.detail;
+                if (typeof detail === 'string') {
+                    return detail;
+                }
+                const values = [];
+                const source = data.errors || data;
+                Object.values(source).forEach((value) => {
+                    if (Array.isArray(value)) {
+                        values.push(value.join(' '));
+                    } else if (typeof value === 'string') {
+                        values.push(value);
+                    } else if (value && typeof value === 'object') {
+                        values.push(normalizeError(value));
+                    }
+                });
+                return values.filter(Boolean)[0] || 'Revise os dados enviados.';
+            };
+
+            const showToast = (message, type = 'info') => {
+                const root = document.getElementById('toast-root');
+                if (!root) {
+                    return;
+                }
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.textContent = message;
+                root.appendChild(toast);
+                window.setTimeout(() => {
+                    toast.remove();
+                }, 3600);
+            };
+
+            const setFeedback = (element, message, type = 'info') => {
+                if (!element) {
+                    return;
+                }
+                element.className = `feedback ${type}`;
+                element.textContent = message;
+                element.classList.remove('hidden');
+            };
+
+            const hideFeedback = (element) => {
+                if (!element) {
+                    return;
+                }
+                element.className = 'feedback hidden';
+                element.textContent = '';
+            };
+
+            const apiFetch = async (url, options = {}) => {
+                const headers = {
+                    'Content-Type': 'application/json',
+                    ...(options.headers || {}),
+                };
+                const token = getAccessToken();
+                if (options.auth !== false && token) {
+                    headers.Authorization = `Bearer ${token}`;
+                }
+
+                const response = await fetch(url, {
+                    ...options,
+                    headers,
+                });
+
+                let data = null;
+                try {
+                    data = await response.json();
+                } catch (error) {
+                    data = null;
+                }
+
+                if (!response.ok || (data && data.success === false)) {
+                    throw new Error(normalizeError(data));
+                }
+
+                return data;
+            };
+
+            const hydrateNav = () => {
+                const authenticated = Boolean(getAccessToken());
+                document.querySelectorAll('[data-auth-link]').forEach((element) => {
+                    element.classList.toggle('hidden', !authenticated);
+                });
+                document.querySelectorAll('[data-guest-link]').forEach((element) => {
+                    element.classList.toggle('hidden', authenticated);
+                });
+                document.querySelectorAll('[data-logout-button]').forEach((element) => {
+                    element.classList.toggle('hidden', !authenticated);
+                });
+            };
+
+            const requireAuth = (redirectTo = '/api/front/login/') => {
+                if (!getAccessToken()) {
+                    window.location.href = redirectTo;
+                    return false;
+                }
+                return true;
+            };
+
+            document.addEventListener('click', (event) => {
+                const button = event.target.closest('[data-logout-button]');
+                if (!button) {
+                    return;
+                }
+                clearAuth();
+                showToast('Sessao encerrada com sucesso.', 'success');
+                if (window.location.pathname === '/api/front/perfil/') {
+                    window.location.href = '/api/front/login/';
+                }
+            });
+
+            document.addEventListener('DOMContentLoaded', hydrateNav);
+
+            return {
+                apiFetch,
+                clearAuth,
+                getAccessToken,
+                getRefreshToken,
+                getStoredUser,
+                hideFeedback,
+                normalizeError,
+                requireAuth,
+                saveAuth,
+                setFeedback,
+                showToast,
+            };
+        })();
+    </script>
+    {% block extra_scripts %}{% endblock %}
 </body>
 </html>

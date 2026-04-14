@@ -1,24 +1,90 @@
 {% extends "base.html" %}
 
-{% block title %}Login{% endblock %}
+{% block title %}Login | MultiLojas{% endblock %}
 
 {% block content %}
-<div class="box">
-    <h1>Login</h1>
-    <p class="muted">Rascunho simples da tela de login.</p>
-    <form>
-        <label>
-            E-mail
-            <input type="email" placeholder="email@exemplo.com">
-        </label>
-        <label>
-            Senha
-            <input type="password" placeholder="Senha">
-        </label>
-    </form>
-    <div class="actions">
-        <a href="/api/front/comprador/">Entrar</a>
-        <a href="/api/front/recuperar-senha/">Recuperar senha</a>
+<section class="split">
+    <div class="card">
+        <span class="eyebrow">Acesso seguro</span>
+        <h1 style="margin-top:0;">Entrar na plataforma</h1>
+        <p class="muted">
+            Use o e-mail e a senha cadastrados. O acesso gera JWT e libera a area protegida do perfil.
+        </p>
+
+        <form id="login-form" class="form-grid" style="margin-top:20px;">
+            <label>
+                E-mail
+                <input type="email" name="email" placeholder="voce@exemplo.com" required>
+            </label>
+            <label>
+                Senha
+                <input type="password" name="senha" placeholder="Sua senha" minlength="8" required>
+            </label>
+            <div id="login-feedback" class="feedback hidden"></div>
+            <div class="inline-actions">
+                <button type="submit">Entrar</button>
+                <a class="button ghost" href="/api/front/recuperar-senha/">Esqueci minha senha</a>
+            </div>
+        </form>
     </div>
-</div>
+
+    <aside class="card">
+        <p class="kicker">Depois do login</p>
+        <h2 class="section-title">O que acontece</h2>
+        <ul class="list-clean muted">
+            <li>O token JWT fica salvo no navegador.</li>
+            <li>O menu troca automaticamente para a area autenticada.</li>
+            <li>Seu perfil pode ser consultado e atualizado.</li>
+            <li>O logout remove os dados locais da sessao.</li>
+        </ul>
+        <div class="status info" style="margin-top:18px;">
+            Se voce ainda nao tiver conta, use o cadastro com perfil de vendedor ou comprador.
+        </div>
+        <div class="actions" style="margin-top:16px;">
+            <a class="button secondary" href="/api/front/cadastro/">Criar conta</a>
+        </div>
+    </aside>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const App = window.MarketplaceApp;
+        if (App.getAccessToken()) {
+            window.location.href = '/api/front/perfil/';
+            return;
+        }
+
+        const form = document.getElementById('login-form');
+        const feedback = document.getElementById('login-feedback');
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            App.hideFeedback(feedback);
+
+            const formData = new FormData(form);
+            const payload = {
+                email: formData.get('email'),
+                senha: formData.get('senha'),
+            };
+
+            try {
+                const response = await App.apiFetch('/api/auth/login/', {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                    auth: false,
+                });
+                App.saveAuth(response.data);
+                App.setFeedback(feedback, response.message || 'Login realizado com sucesso.', 'success');
+                App.showToast('Login realizado com sucesso.', 'success');
+                window.setTimeout(() => {
+                    window.location.href = '/api/front/perfil/';
+                }, 500);
+            } catch (error) {
+                App.setFeedback(feedback, error.message, 'error');
+            }
+        });
+    });
+</script>
 {% endblock %}

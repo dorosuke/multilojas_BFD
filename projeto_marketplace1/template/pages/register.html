@@ -1,31 +1,207 @@
 {% extends "base.html" %}
 
-{% block title %}Cadastro{% endblock %}
+{% block title %}Cadastro | MultiLojas{% endblock %}
 
 {% block content %}
-<div class="box">
-    <h1>Cadastro</h1>
-    <p class="muted">Rascunho simples da tela de cadastro.</p>
-    <form>
-        <label>
-            Nome
-            <input type="text" placeholder="Nome">
-        </label>
-        <label>
-            E-mail
-            <input type="email" placeholder="email@exemplo.com">
-        </label>
-        <label>
-            Tipo de conta
-            <select>
-                <option>Vendedor</option>
-                <option>Comprador</option>
-            </select>
-        </label>
-        <label>
-            Senha
-            <input type="password" placeholder="Senha">
-        </label>
-    </form>
-</div>
+<section class="split">
+    <div class="card">
+        <span class="eyebrow">Cadastro de usuarios</span>
+        <h1 style="margin-top:0;">Criar conta no MultiLojas</h1>
+        <p class="muted">
+            A tela alterna entre vendedor e comprador e envia os dados certos para cada endpoint da API.
+        </p>
+
+        <div class="tabs" role="tablist" aria-label="Tipos de cadastro">
+            <button type="button" class="tab active" data-tab="vendedor">Sou vendedor</button>
+            <button type="button" class="tab" data-tab="comprador">Sou comprador</button>
+        </div>
+
+        <form id="register-form" class="form-grid">
+            <input type="hidden" name="tipo_cadastro" value="vendedor">
+
+            <div class="form-grid two-col">
+                <label>
+                    Nome completo
+                    <input type="text" name="nome" placeholder="Seu nome" required>
+                </label>
+                <label>
+                    Telefone
+                    <input type="text" name="telefone" placeholder="(11) 99999-0000" required>
+                </label>
+            </div>
+
+            <div class="form-grid two-col">
+                <label>
+                    E-mail
+                    <input type="email" name="email" placeholder="voce@exemplo.com" required>
+                </label>
+                <label>
+                    Senha
+                    <input type="password" name="senha" placeholder="Minimo de 8 caracteres" minlength="8" required>
+                </label>
+            </div>
+
+            <div id="vendor-fields" class="form-grid">
+                <div class="form-grid two-col">
+                    <label>
+                        Nome da loja
+                        <input type="text" name="nome_loja" placeholder="Atelie Aurora">
+                    </label>
+                    <label>
+                        Chave PIX
+                        <input type="text" name="chave_pix" placeholder="pix@loja.com">
+                    </label>
+                </div>
+                <div class="form-grid two-col">
+                    <label>
+                        Logo da loja
+                        <input type="url" name="logo_url" placeholder="https://...">
+                    </label>
+                    <label>
+                        CNPJ ou CPF
+                        <input type="text" name="cnpj" placeholder="Opcional">
+                    </label>
+                </div>
+                <label>
+                    Endereco completo da loja
+                    <textarea name="endereco_completo_vendedor" placeholder="Rua, numero, bairro, cidade e CEP"></textarea>
+                </label>
+                <label>
+                    Descricao da loja
+                    <textarea name="descricao_loja" placeholder="Conte um pouco sobre sua loja"></textarea>
+                </label>
+            </div>
+
+            <div id="buyer-fields" class="form-grid hidden">
+                <div class="form-grid two-col">
+                    <label>
+                        CPF
+                        <input type="text" name="cpf" placeholder="000.000.000-00">
+                    </label>
+                    <div class="status info">
+                        Este cadastro libera a compra e salva o endereco para entregas futuras.
+                    </div>
+                </div>
+                <label>
+                    Endereco completo para entrega
+                    <textarea name="endereco_completo_comprador" placeholder="Rua, numero, bairro, cidade e CEP"></textarea>
+                </label>
+            </div>
+
+            <div id="register-feedback" class="feedback hidden"></div>
+            <div class="inline-actions">
+                <button type="submit">Criar conta</button>
+                <a class="button ghost" href="/api/front/login/">Ja tenho conta</a>
+            </div>
+        </form>
+    </div>
+
+    <aside class="card">
+        <p class="kicker">Cobertura da sprint 2</p>
+        <h2 class="section-title">Campos por perfil</h2>
+        <ul class="list-clean muted">
+            <li>Vendedor: dados pessoais, loja, PIX, endereco e descricao.</li>
+            <li>Comprador: dados pessoais, CPF e endereco de entrega.</li>
+            <li>Ao concluir, o sistema ja autentica o usuario com JWT.</li>
+            <li>Depois do cadastro, o usuario segue direto para o perfil.</li>
+        </ul>
+    </aside>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const App = window.MarketplaceApp;
+        if (App.getAccessToken()) {
+            window.location.href = '/api/front/perfil/';
+            return;
+        }
+
+        const form = document.getElementById('register-form');
+        const feedback = document.getElementById('register-feedback');
+        const hiddenType = form.querySelector('[name="tipo_cadastro"]');
+        const vendorFields = document.getElementById('vendor-fields');
+        const buyerFields = document.getElementById('buyer-fields');
+        const tabs = [...document.querySelectorAll('[data-tab]')];
+
+        const syncRequiredFields = (type) => {
+            const vendorRequired = ['nome_loja', 'chave_pix'];
+            const buyerRequired = ['cpf'];
+
+            vendorRequired.forEach((name) => {
+                form.querySelector(`[name="${name}"]`).required = type === 'vendedor';
+            });
+            buyerRequired.forEach((name) => {
+                form.querySelector(`[name="${name}"]`).required = type === 'comprador';
+            });
+            form.querySelector('[name="endereco_completo_vendedor"]').required = type === 'vendedor';
+            form.querySelector('[name="endereco_completo_comprador"]').required = type === 'comprador';
+        };
+
+        const setTab = (type) => {
+            hiddenType.value = type;
+            vendorFields.classList.toggle('hidden', type !== 'vendedor');
+            buyerFields.classList.toggle('hidden', type !== 'comprador');
+            tabs.forEach((tab) => {
+                tab.classList.toggle('active', tab.dataset.tab === type);
+            });
+            syncRequiredFields(type);
+        };
+
+        tabs.forEach((tab) => {
+            tab.addEventListener('click', () => setTab(tab.dataset.tab));
+        });
+
+        setTab('vendedor');
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            App.hideFeedback(feedback);
+
+            const formData = new FormData(form);
+            const type = formData.get('tipo_cadastro');
+            const isVendor = type === 'vendedor';
+            const endpoint = isVendor ? '/api/auth/register/vendor/' : '/api/auth/register/buyer/';
+            const payload = {
+                nome: formData.get('nome'),
+                email: formData.get('email'),
+                senha: formData.get('senha'),
+                telefone: formData.get('telefone'),
+            };
+
+            if (isVendor) {
+                Object.assign(payload, {
+                    nome_loja: formData.get('nome_loja'),
+                    descricao_loja: formData.get('descricao_loja'),
+                    logo_url: formData.get('logo_url'),
+                    endereco_completo: formData.get('endereco_completo_vendedor'),
+                    cnpj: formData.get('cnpj'),
+                    chave_pix: formData.get('chave_pix'),
+                });
+            } else {
+                Object.assign(payload, {
+                    cpf: formData.get('cpf'),
+                    endereco_completo: formData.get('endereco_completo_comprador'),
+                });
+            }
+
+            try {
+                const response = await App.apiFetch(endpoint, {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                    auth: false,
+                });
+                App.saveAuth(response.data);
+                App.setFeedback(feedback, response.message || 'Conta criada com sucesso.', 'success');
+                App.showToast('Conta criada com sucesso.', 'success');
+                window.setTimeout(() => {
+                    window.location.href = '/api/front/perfil/';
+                }, 500);
+            } catch (error) {
+                App.setFeedback(feedback, error.message, 'error');
+            }
+        });
+    });
+</script>
 {% endblock %}

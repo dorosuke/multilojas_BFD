@@ -90,6 +90,37 @@ Tambem existe uma rota raiz da API:
 GET /api/
 ```
 
+## Entregas das Sprints 1 e 2
+
+Backend concluido neste recorte:
+
+- configuracao inicial do projeto Django + DRF
+- modelagem de `User`, `Vendedor` e `Comprador`
+- cadastro de vendedor em `/api/auth/register/vendor/`
+- cadastro de comprador em `/api/auth/register/buyer/`
+- login com JWT em `/api/auth/login/`
+- perfil autenticado em `/api/auth/profile/`
+- recuperacao de senha com geracao de link
+- correcao do fluxo de redefinicao para abrir a tela web
+
+Frontend concluido neste recorte:
+
+- pagina inicial atualizada para o estado da sprint
+- tela de cadastro com alternancia entre vendedor e comprador
+- tela de login conectada a API
+- tela de recuperacao de senha com solicitacao e confirmacao
+- tela de perfil protegida e editavel
+- persistencia simples da sessao no navegador com JWT
+
+## Como testar as funcionalidades das Sprints 1 e 2
+
+1. Acesse `/api/front/cadastro/` e crie uma conta de vendedor ou comprador.
+2. Depois do cadastro, o usuario sera autenticado e redirecionado para `/api/front/perfil/`.
+3. Acesse `/api/front/login/` para entrar com uma conta ja existente.
+4. Acesse `/api/front/perfil/` para consultar e editar os dados do usuario autenticado.
+5. Acesse `/api/front/recuperar-senha/` para solicitar o link de redefinicao.
+6. Use o `reset_link` retornado pela API para abrir a tela de nova senha no navegador.
+
 ## Frontend em templates
 
 Rotas visuais disponiveis:
@@ -104,6 +135,15 @@ Rotas visuais disponiveis:
 - `/api/front/produto/vestido-floral/`
 - `/api/front/vendedor/`
 - `/api/front/comprador/`
+
+Rotas da autenticacao ja integradas ao front:
+
+- `/api/auth/register/vendor/`
+- `/api/auth/register/buyer/`
+- `/api/auth/login/`
+- `/api/auth/profile/`
+- `/api/auth/password-reset/request/`
+- `/api/auth/password-reset/confirm/`
 
 ## Documentos de apoio
 

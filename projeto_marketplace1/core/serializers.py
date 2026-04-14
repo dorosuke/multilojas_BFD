@@ -130,7 +130,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
         return {
             'uid': uid,
             'token': token,
-            'reset_link': f'/api/auth/password-reset/confirm/?uid={uid}&token={token}',
+            'reset_link': f'/api/front/recuperar-senha/?uid={uid}&token={token}',
         }
 
 

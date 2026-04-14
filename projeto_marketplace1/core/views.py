@@ -248,7 +248,11 @@ def register_page(request):
 
 
 def forgot_password_page(request):
-    return render(request, 'pages/forgot_password.html')
+    context = {
+        'uid': request.GET.get('uid', ''),
+        'token': request.GET.get('token', ''),
+    }
+    return render(request, 'pages/forgot_password.html', context)
 
 
 def profile_page(request):

@@ -1,24 +1,249 @@
 {% extends "base.html" %}
 
-{% block title %}Perfil{% endblock %}
+{% block title %}Perfil | MultiLojas{% endblock %}
 
 {% block content %}
-<div class="box">
-    <h1>Perfil</h1>
-    <p class="muted">Rascunho simples da tela de perfil.</p>
-    <form>
-        <label>
-            Nome
-            <input type="text" value="Usuario Exemplo">
-        </label>
-        <label>
-            E-mail
-            <input type="email" value="usuario@exemplo.com">
-        </label>
-        <label>
-            Telefone
-            <input type="text" value="(00) 00000-0000">
-        </label>
-    </form>
-</div>
+<section class="split">
+    <div class="card">
+        <span class="eyebrow">Area protegida</span>
+        <h1 style="margin-top:0;">Meu perfil</h1>
+        <p class="muted">
+            Esta pagina consome o endpoint protegido de perfil e permite atualizar os dados conforme o tipo do usuario.
+        </p>
+
+        <div id="profile-loading" class="status info">Carregando dados do perfil...</div>
+
+        <form id="profile-form" class="form-grid hidden" style="margin-top:18px;">
+            <div class="form-grid two-col">
+                <label>
+                    Nome
+                    <input type="text" name="nome" required>
+                </label>
+                <label>
+                    E-mail
+                    <input type="email" name="email" disabled>
+                </label>
+            </div>
+
+            <div class="form-grid two-col">
+                <label>
+                    Telefone
+                    <input type="text" name="telefone" required>
+                </label>
+                <label>
+                    Tipo de conta
+                    <input type="text" name="tipo" disabled>
+                </label>
+            </div>
+
+            <div id="profile-vendor-fields" class="form-grid hidden">
+                <div class="form-grid two-col">
+                    <label>
+                        Nome da loja
+                        <input type="text" name="nome_loja">
+                    </label>
+                    <label>
+                        Chave PIX
+                        <input type="text" name="chave_pix">
+                    </label>
+                </div>
+                <div class="form-grid two-col">
+                    <label>
+                        Logo da loja
+                        <input type="url" name="logo_url">
+                    </label>
+                    <label>
+                        CNPJ ou CPF
+                        <input type="text" name="cnpj">
+                    </label>
+                </div>
+                <label>
+                    Endereco da loja
+                    <textarea name="endereco_completo_vendedor"></textarea>
+                </label>
+                <label>
+                    Descricao da loja
+                    <textarea name="descricao_loja"></textarea>
+                </label>
+            </div>
+
+            <div id="profile-buyer-fields" class="form-grid hidden">
+                <div class="form-grid two-col">
+                    <label>
+                        CPF
+                        <input type="text" name="cpf">
+                    </label>
+                    <div class="status info">
+                        O endereco abaixo sera usado como base para futuras entregas.
+                    </div>
+                </div>
+                <label>
+                    Endereco de entrega
+                    <textarea name="endereco_completo_comprador"></textarea>
+                </label>
+            </div>
+
+            <div id="profile-feedback" class="feedback hidden"></div>
+            <div class="inline-actions">
+                <button type="submit">Salvar alteracoes</button>
+                <button type="button" class="ghost" id="reload-profile">Recarregar dados</button>
+            </div>
+        </form>
+    </div>
+
+    <aside class="card">
+        <p class="kicker">Dados da conta</p>
+        <h2 class="section-title">Resumo rapido</h2>
+        <div id="profile-summary" class="form-grid">
+            <div class="status info">Os detalhes aparecem aqui assim que o perfil for carregado.</div>
+        </div>
+
+        <div class="section">
+            <h3 style="margin-bottom:10px;">Blocos previstos</h3>
+            <ul class="list-clean muted">
+                {% for section in sections %}
+                <li><strong>{{ section.title }}</strong><br>{{ section.description }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </aside>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const App = window.MarketplaceApp;
+        if (!App.requireAuth()) {
+            return;
+        }
+
+        const form = document.getElementById('profile-form');
+        const loadingBox = document.getElementById('profile-loading');
+        const feedback = document.getElementById('profile-feedback');
+        const vendorFields = document.getElementById('profile-vendor-fields');
+        const buyerFields = document.getElementById('profile-buyer-fields');
+        const summary = document.getElementById('profile-summary');
+        const reloadButton = document.getElementById('reload-profile');
+
+        let currentProfile = null;
+
+        const renderSummary = (profile) => {
+            const user = profile.user;
+            const details = user.tipo === 'vendedor' ? profile.vendedor : profile.comprador;
+            const lines = [
+                `<div class="stat"><span class="muted">Conta</span><strong>${user.nome}</strong></div>`,
+                `<div class="stat"><span class="muted">Tipo</span><strong>${user.tipo}</strong></div>`,
+                `<div class="stat"><span class="muted">E-mail</span><strong>${user.email}</strong></div>`,
+            ];
+
+            if (user.tipo === 'vendedor' && details) {
+                lines.push(`<div class="stat"><span class="muted">Loja</span><strong>${details.nome_loja || 'Nao informado'}</strong></div>`);
+            }
+            if (user.tipo === 'comprador' && details) {
+                lines.push(`<div class="stat"><span class="muted">CPF</span><strong>${details.cpf || 'Nao informado'}</strong></div>`);
+            }
+
+            summary.innerHTML = `<div class="stats">${lines.join('')}</div>`;
+        };
+
+        const fillForm = (profile) => {
+            currentProfile = profile;
+            const user = profile.user;
+            form.nome.value = user.nome || '';
+            form.email.value = user.email || '';
+            form.telefone.value = user.telefone || '';
+            form.tipo.value = user.tipo || '';
+
+            const isVendor = user.tipo === 'vendedor';
+            vendorFields.classList.toggle('hidden', !isVendor);
+            buyerFields.classList.toggle('hidden', isVendor);
+
+            if (isVendor && profile.vendedor) {
+                form.nome_loja.value = profile.vendedor.nome_loja || '';
+                form.chave_pix.value = profile.vendedor.chave_pix || '';
+                form.logo_url.value = profile.vendedor.logo_url || '';
+                form.cnpj.value = profile.vendedor.cnpj || '';
+                form.endereco_completo_vendedor.value = profile.vendedor.endereco_completo || '';
+                form.descricao_loja.value = profile.vendedor.descricao_loja || '';
+            }
+
+            if (!isVendor && profile.comprador) {
+                form.cpf.value = profile.comprador.cpf || '';
+                form.endereco_completo_comprador.value = profile.comprador.endereco_completo || '';
+            }
+
+            renderSummary(profile);
+            loadingBox.classList.add('hidden');
+            form.classList.remove('hidden');
+            localStorage.setItem('marketplace.user', JSON.stringify(profile));
+        };
+
+        const loadProfile = async () => {
+            App.hideFeedback(feedback);
+            loadingBox.className = 'status info';
+            loadingBox.textContent = 'Carregando dados do perfil...';
+            loadingBox.classList.remove('hidden');
+            form.classList.add('hidden');
+
+            try {
+                const response = await App.apiFetch('/api/auth/profile/');
+                fillForm(response.data);
+            } catch (error) {
+                if (error.message.toLowerCase().includes('token')) {
+                    App.clearAuth();
+                    window.location.href = '/api/front/login/';
+                    return;
+                }
+                loadingBox.className = 'status error';
+                loadingBox.textContent = error.message;
+            }
+        };
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            App.hideFeedback(feedback);
+            if (!currentProfile) {
+                return;
+            }
+
+            const isVendor = currentProfile.user.tipo === 'vendedor';
+            const payload = {
+                nome: form.nome.value,
+                telefone: form.telefone.value,
+            };
+
+            if (isVendor) {
+                Object.assign(payload, {
+                    nome_loja: form.nome_loja.value,
+                    descricao_loja: form.descricao_loja.value,
+                    logo_url: form.logo_url.value,
+                    endereco_completo: form.endereco_completo_vendedor.value,
+                    cnpj: form.cnpj.value,
+                    chave_pix: form.chave_pix.value,
+                });
+            } else {
+                Object.assign(payload, {
+                    cpf: form.cpf.value,
+                    endereco_completo: form.endereco_completo_comprador.value,
+                });
+            }
+
+            try {
+                const response = await App.apiFetch('/api/auth/profile/', {
+                    method: 'PUT',
+                    body: JSON.stringify(payload),
+                });
+                fillForm(response.data);
+                App.setFeedback(feedback, response.message || 'Perfil atualizado com sucesso.', 'success');
+                App.showToast('Perfil atualizado com sucesso.', 'success');
+            } catch (error) {
+                App.setFeedback(feedback, error.message, 'error');
+            }
+        });
+
+        reloadButton.addEventListener('click', loadProfile);
+        loadProfile();
+    });
+</script>
 {% endblock %}
