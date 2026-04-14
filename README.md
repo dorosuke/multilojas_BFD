@@ -132,6 +132,33 @@ Frontend:
 5. Acesse `/api/front/recuperar-senha/` para solicitar o link de redefinicao.
 6. Use o `reset_link` retornado pela API para abrir a tela de nova senha no navegador.
 
+## Administracao do sistema
+
+O Django Admin esta habilitado para gerenciamento interno da aplicacao.
+
+URL de acesso:
+
+```text
+/admin/
+```
+
+Credenciais administrativas atuais do ambiente local:
+
+- login: `admin@multilojas.local`
+- senha: `Admin@12345`
+
+Recomendacao:
+
+- altere a senha do administrador apos o primeiro acesso
+- em ambientes compartilhados ou de producao, substitua essas credenciais por valores proprios e seguros
+
+## Observacoes importantes
+
+- o projeto aceita PostgreSQL como banco principal e SQLite como fallback local
+- o banco SQLite local foi recriado para alinhar corretamente as migrations do app `core`
+- o formulario de cadastro agora exibe mensagens de erro por campo, facilitando a identificacao de problemas de validacao
+- o fluxo de recuperacao de senha direciona o usuario para a interface web antes da confirmacao da nova senha
+
 ## Frontend em templates
 
 Rotas visuais disponiveis:
