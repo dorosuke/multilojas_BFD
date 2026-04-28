@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Minha Loja | MultiLojas{% endblock %}
+
+{% block content %}
+<section class="split">
+    <div class="card">
+        <span class="eyebrow">Minha loja</span>
+        <h1 style="margin-top:0;">Dados da loja</h1>
+        <p class="muted">Atualize a identidade da sua marca, os dados de contato e as informacoes de pagamento.</p>
+
+        <div id="store-loading" class="status info">Carregando dados da loja...</div>
+
+        <form id="store-form" class="form-grid hidden" style="margin-top:18px;">
+            <div class="form-grid two-col">
+                <label>
+                    Nome da loja
+                    <input type="text" name="nome_loja" required>
+                </label>
+                <label>
+                    Chave PIX
+                    <input type="text" name="chave_pix" required>
+                </label>
+            </div>
+
+            <div class="form-grid two-col">
+                <label>
+                    Nome do responsavel
+                    <input type="text" name="nome" required>
+                </label>
+                <label>
+                    Telefone
+                    <input type="text" name="telefone" required>
+                </label>
+            </div>
+
+            <div class="form-grid two-col">
+                <label>
+                    Logo da loja
+                    <input type="url" name="logo_url" placeholder="https://...">
+                </label>
+                <label>
+                    CNPJ ou CPF
+                    <input type="text" name="cnpj" placeholder="Opcional">
+                </label>
+            </div>
+
+            <label>
+                Endereco completo
+                <textarea name="endereco_completo" required></textarea>
+            </label>
+
+            <label>
+                Descricao da loja
+                <textarea name="descricao_loja" placeholder="Conte ao publico o que torna sua loja especial."></textarea>
+            </label>
+
+            <div id="store-feedback" class="feedback hidden"></div>
+            <div class="inline-actions">
+                <button type="submit">Salvar dados</button>
+                <a class="button ghost" href="/api/front/vendedor/">Voltar ao painel</a>
+            </div>
+        </form>
+    </div>
+
+    <aside class="card">
+        <p class="kicker">Identidade da marca</p>
+        <h2 class="section-title">Visao rapida</h2>
+        <div id="store-summary" class="form-grid">
+            <div class="status info">As informacoes da loja aparecerao aqui.</div>
+        </div>
+    </aside>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const App = window.MarketplaceApp;
+        if (!App.requireAuth()) {
+            return;
+        }
+
+        const storedUser = App.getStoredUser();
+        if (!storedUser || storedUser.user.tipo !== 'vendedor') {
+            window.location.href = '/api/front/perfil/';
+            return;
+        }
+
+        const form = document.getElementById('store-form');
+        const loading = document.getElementById('store-loading');
+        const feedback = document.getElementById('store-feedback');
+        const summary = document.getElementById('store-summary');
+
+        const renderSummary = (data) => {
+            summary.innerHTML = `
+                <div class="stats">
+                    <div class="stat"><span class="muted">Loja</span><strong>${data.vendedor.nome_loja}</strong></div>
+                    <div class="stat"><span class="muted">Produtos ativos</span><strong>${data.stats.produtos_ativos}</strong></div>
+                    <div class="stat"><span class="muted">Em destaque</span><strong>${data.stats.produtos_destaque}</strong></div>
+                    <div class="stat"><span class="muted">Sem estoque</span><strong>${data.stats.produtos_sem_estoque}</strong></div>
+                </div>
+            `;
+        };
+
+        const fillForm = (data) => {
+            form.nome_loja.value = data.vendedor.nome_loja || '';
+            form.chave_pix.value = data.vendedor.chave_pix || '';
+            form.nome.value = data.user.nome || '';
+            form.telefone.value = data.user.telefone || '';
+            form.logo_url.value = data.vendedor.logo_url || '';
+            form.cnpj.value = data.vendedor.cnpj || '';
+            form.endereco_completo.value = data.vendedor.endereco_completo || '';
+            form.descricao_loja.value = data.vendedor.descricao_loja || '';
+            renderSummary(data);
+            loading.classList.add('hidden');
+            form.classList.remove('hidden');
+        };
+
+        const loadStore = async () => {
+            loading.className = 'status info';
+            loading.textContent = 'Carregando dados da loja...';
+            loading.classList.remove('hidden');
+            form.classList.add('hidden');
+
+            try {
+                const response = await App.apiFetch('/api/seller/store/');
+                fillForm(response.data);
+            } catch (error) {
+                loading.className = 'status error';
+                loading.textContent = error.message;
+            }
+        };
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            App.hideFeedback(feedback);
+
+            const payload = {
+                nome_loja: form.nome_loja.value,
+                chave_pix: form.chave_pix.value,
+                nome: form.nome.value,
+                telefone: form.telefone.value,
+                logo_url: form.logo_url.value,
+                cnpj: form.cnpj.value,
+                endereco_completo: form.endereco_completo.value,
+                descricao_loja: form.descricao_loja.value,
+            };
+
+            try {
+                const response = await App.apiFetch('/api/seller/store/', {
+                    method: 'PUT',
+                    body: JSON.stringify(payload),
+                });
+                fillForm(response.data);
+                App.setFeedback(feedback, response.message || 'Dados da loja atualizados com sucesso.', 'success');
+                App.showToast('Dados da loja atualizados com sucesso.', 'success');
+            } catch (error) {
+                App.showToast('Nao foi possivel salvar os dados da loja.', 'error');
+                App.setFeedback(feedback, error.message, 'error');
+            }
+        });
+
+        loadStore();
+    });
+</script>
+{% endblock %}

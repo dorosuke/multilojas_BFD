@@ -6,7 +6,7 @@ from django.utils.encoding import force_bytes
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import Comprador, User, Vendedor
+from .models import Categoria, Comprador, FotoProduto, Produto, User, VariacaoProduto, Vendedor
 
 
 class UserSummarySerializer(serializers.ModelSerializer):
@@ -32,6 +32,177 @@ class CompradorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comprador
         fields = ['cpf', 'endereco_completo']
+
+
+class FotoProdutoSerializer(serializers.ModelSerializer):
+    imagem_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FotoProduto
+        fields = ['id', 'ordem', 'imagem_url']
+
+    def get_imagem_url(self, obj):
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.imagem.url)
+        return obj.imagem.url
+
+
+class ProdutoSerializer(serializers.ModelSerializer):
+    fotos = FotoProdutoSerializer(many=True, read_only=True)
+    total_fotos = serializers.IntegerField(source='fotos.count', read_only=True)
+    status_estoque = serializers.SerializerMethodField()
+    categoria = serializers.SerializerMethodField()
+    variacoes = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Produto
+        fields = [
+            'id',
+            'categoria',
+            'nome',
+            'descricao',
+            'preco',
+            'estoque',
+            'destaque',
+            'ativo',
+            'data_cadastro',
+            'status_estoque',
+            'total_fotos',
+            'variacoes',
+            'fotos',
+        ]
+
+    def get_status_estoque(self, obj):
+        if obj.estoque == 0:
+            return 'indisponivel'
+        if obj.estoque < 5:
+            return 'baixo'
+        return 'ok'
+
+    def get_categoria(self, obj):
+        if not obj.categoria_id:
+            return None
+        return {
+            'id': obj.categoria_id,
+            'nome': obj.categoria.nome,
+            'parent_id': obj.categoria.parent_id,
+            'ativo': obj.categoria.ativo,
+        }
+
+    def get_variacoes(self, obj):
+        return [
+            {'id': v.id, 'tipo': v.tipo, 'valor': v.valor}
+            for v in obj.variacoes.all()
+        ]
+
+
+class ProdutoCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Produto
+        fields = ['nome', 'descricao', 'preco', 'estoque', 'destaque', 'ativo', 'categoria']
+
+    def validate_estoque(self, value):
+        if value < 0:
+            raise serializers.ValidationError('O estoque não pode ser negativo.')
+        return value
+
+    def validate_categoria(self, value):
+        if not value:
+            return value
+
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated or not hasattr(request.user, 'vendedor'):
+            raise serializers.ValidationError('Categoria inválida.')
+
+        if value.vendedor_id != request.user.vendedor.id:
+            raise serializers.ValidationError('Categoria deve pertencer à sua loja.')
+        return value
+
+
+class CategoriaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Categoria
+        fields = ['id', 'nome', 'descricao', 'ativo', 'parent', 'data_cadastro']
+
+
+class CategoriaCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Categoria
+        fields = ['nome', 'descricao', 'ativo', 'parent']
+
+    def validate_parent(self, value):
+        if not value:
+            return value
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated or not hasattr(request.user, 'vendedor'):
+            raise serializers.ValidationError('Categoria pai inválida.')
+        if value.vendedor_id != request.user.vendedor.id:
+            raise serializers.ValidationError('Categoria pai deve pertencer à sua loja.')
+        return value
+
+
+class VariacaoProdutoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VariacaoProduto
+        fields = ['id', 'tipo', 'valor', 'data_cadastro']
+
+
+class VariacaoProdutoCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VariacaoProduto
+        fields = ['tipo', 'valor']
+
+    def validate_tipo(self, value):
+        value = (value or '').strip()
+        if not value:
+            raise serializers.ValidationError('Informe o tipo da variação.')
+        return value
+
+    def validate_valor(self, value):
+        value = (value or '').strip()
+        if not value:
+            raise serializers.ValidationError('Informe o valor da variação.')
+        return value
+
+
+class FotoProdutoUploadSerializer(serializers.Serializer):
+    fotos = serializers.ListField(
+        child=serializers.ImageField(),
+        allow_empty=False,
+        write_only=True,
+    )
+
+    def validate_fotos(self, value):
+        if len(value) > 5:
+            raise serializers.ValidationError('Envie no máximo 5 imagens por vez.')
+
+        for image in value:
+            if image.size > 1024 * 1024:
+                raise serializers.ValidationError(
+                    f'A imagem "{image.name}" excede o limite de 1MB.'
+                )
+        return value
+
+
+class SellerStoreSerializer(serializers.Serializer):
+    user = UserSummarySerializer(read_only=True)
+    vendedor = VendedorSerializer(read_only=True)
+    stats = serializers.DictField(read_only=True)
+
+    def to_representation(self, instance):
+        vendedor = instance.vendedor
+        produtos = vendedor.produtos.all()
+        return {
+            'user': UserSummarySerializer(instance).data,
+            'vendedor': VendedorSerializer(vendedor).data,
+            'stats': {
+                'total_produtos': produtos.count(),
+                'produtos_ativos': produtos.filter(ativo=True).count(),
+                'produtos_destaque': produtos.filter(destaque=True, ativo=True).count(),
+                'produtos_sem_estoque': produtos.filter(estoque=0, ativo=True).count(),
+            },
+        }
 
 
 class RegistroVendedorSerializer(serializers.Serializer):

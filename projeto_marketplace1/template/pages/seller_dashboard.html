@@ -1,31 +1,114 @@
 {% extends "base.html" %}
 
-{% block title %}Painel do Vendedor{% endblock %}
+{% block title %}Painel do Vendedor | MultiLojas{% endblock %}
 
 {% block content %}
-<div class="box">
-    <h1>Painel do vendedor</h1>
-    <p class="muted">Rascunho da area do vendedor.</p>
-</div>
-
-<div class="box">
-    <h2>Resumo</h2>
-    <div class="grid">
-        {% for stat in stats %}
-        <div class="item">
-            <strong>{{ stat.label }}</strong>
-            <p>{{ stat.value }}</p>
+<section class="hero-card">
+    <span class="eyebrow">Gestao do vendedor</span>
+    <div class="split">
+        <div>
+            <p class="kicker">Painel principal</p>
+            <h1 style="margin:0 0 14px; font-size:clamp(2rem, 5vw, 3.3rem); line-height:1.02;">Centralize sua loja e seus produtos.</h1>
+            <p class="muted" style="font-size:1.05rem; max-width:620px;">
+                Acompanhe o resumo da sua operacao, atualize os dados da loja e mantenha o catalogo sempre organizado.
+            </p>
+            <div class="inline-actions" style="margin-top:22px;">
+                <a class="button" href="/api/front/minha-loja/">Editar minha loja</a>
+                <a class="button secondary" href="/api/front/meus-produtos/">Gerenciar produtos</a>
+            </div>
         </div>
-        {% endfor %}
-    </div>
-</div>
 
-<div class="box">
-    <h2>Tarefas</h2>
-    <div class="grid">
-        {% for task in tasks %}
-        <div class="item">{{ task }}</div>
-        {% endfor %}
+        <div class="card">
+            <p class="kicker">Resumo atual</p>
+            <div id="seller-dashboard-stats" class="stats">
+                <div class="stat"><span class="muted">Loja</span><strong>Carregando...</strong></div>
+            </div>
+        </div>
     </div>
-</div>
+</section>
+
+<section class="section grid" style="grid-template-columns: 1.2fr 0.8fr;">
+    <div class="card">
+        <div class="inline-actions" style="justify-content:space-between; align-items:flex-start;">
+            <div>
+                <p class="kicker">Catalogo</p>
+                <h2 class="section-title">Produtos recentes</h2>
+            </div>
+            <a class="button ghost" href="/api/front/meus-produtos/">Ver todos</a>
+        </div>
+        <div id="seller-dashboard-products" class="grid">
+            <article class="item">
+                <strong>Carregando produtos...</strong>
+            </article>
+        </div>
+    </div>
+
+    <aside class="card">
+        <p class="kicker">Acessos rapidos</p>
+        <div class="form-grid">
+            <a class="button" href="/api/front/minha-loja/">Atualizar dados da loja</a>
+            <a class="button secondary" href="/api/front/meus-produtos/">Cadastrar novo produto</a>
+            <a class="button ghost" href="/api/front/perfil/">Ajustar perfil da conta</a>
+        </div>
+    </aside>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const App = window.MarketplaceApp;
+        if (!App.requireAuth()) {
+            return;
+        }
+
+        const storedUser = App.getStoredUser();
+        if (!storedUser || storedUser.user.tipo !== 'vendedor') {
+            window.location.href = '/api/front/perfil/';
+            return;
+        }
+
+        const statsRoot = document.getElementById('seller-dashboard-stats');
+        const productsRoot = document.getElementById('seller-dashboard-products');
+
+        try {
+            const [storeResponse, productsResponse] = await Promise.all([
+                App.apiFetch('/api/seller/store/'),
+                App.apiFetch('/api/seller/products/'),
+            ]);
+
+            const store = storeResponse.data;
+            const stats = store.stats;
+            statsRoot.innerHTML = `
+                <div class="stat"><span class="muted">Loja</span><strong>${store.vendedor.nome_loja}</strong></div>
+                <div class="stat"><span class="muted">Produtos ativos</span><strong>${stats.produtos_ativos}</strong></div>
+                <div class="stat"><span class="muted">Em destaque</span><strong>${stats.produtos_destaque}</strong></div>
+                <div class="stat"><span class="muted">Sem estoque</span><strong>${stats.produtos_sem_estoque}</strong></div>
+            `;
+
+            const produtos = productsResponse.data.slice(0, 4);
+            if (!produtos.length) {
+                productsRoot.innerHTML = `
+                    <article class="item">
+                        <strong>Nenhum produto cadastrado ainda.</strong>
+                        <p class="muted">Comece criando o primeiro item do seu catalogo.</p>
+                    </article>
+                `;
+                return;
+            }
+
+            productsRoot.innerHTML = produtos.map((produto) => `
+                <article class="item">
+                    <span class="chip">${produto.status_estoque === 'indisponivel' ? 'Indisponivel' : produto.status_estoque === 'baixo' ? 'Estoque baixo' : 'Ativo'}</span>
+                    <h3>${produto.nome}</h3>
+                    <p class="muted">R$ ${Number(produto.preco).toFixed(2).replace('.', ',')}</p>
+                    <p class="muted">${produto.estoque} unidade(s) em estoque</p>
+                </article>
+            `).join('');
+        } catch (error) {
+            statsRoot.innerHTML = `<div class="status error">${error.message}</div>`;
+            productsRoot.innerHTML = `<div class="status error">${error.message}</div>`;
+        }
+    });
+</script>
 {% endblock %}

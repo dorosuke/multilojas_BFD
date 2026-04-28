@@ -78,3 +78,91 @@ class Comprador(models.Model):
 
     def __str__(self):
         return self.user.nome
+
+
+class Produto(models.Model):
+    vendedor = models.ForeignKey(
+        Vendedor,
+        on_delete=models.CASCADE,
+        related_name='produtos',
+    )
+    categoria = models.ForeignKey(
+        'Categoria',
+        on_delete=models.SET_NULL,
+        related_name='produtos',
+        null=True,
+        blank=True,
+    )
+    nome = models.CharField(max_length=255)
+    descricao = models.TextField()
+    preco = models.DecimalField(max_digits=10, decimal_places=2)
+    estoque = models.PositiveIntegerField(default=0)
+    destaque = models.BooleanField(default=False)
+    ativo = models.BooleanField(default=True)
+    data_cadastro = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-destaque', '-data_cadastro']
+
+    def __str__(self):
+        return self.nome
+
+
+class Categoria(models.Model):
+    vendedor = models.ForeignKey(
+        Vendedor,
+        on_delete=models.CASCADE,
+        related_name='categorias',
+    )
+    nome = models.CharField(max_length=255)
+    descricao = models.TextField(blank=True)
+    ativo = models.BooleanField(default=True)
+    parent = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='subcategorias',
+    )
+    data_cadastro = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['nome', 'id']
+        unique_together = [('vendedor', 'nome', 'parent')]
+
+    def __str__(self):
+        return self.nome
+
+
+class VariacaoProduto(models.Model):
+    produto = models.ForeignKey(
+        Produto,
+        on_delete=models.CASCADE,
+        related_name='variacoes',
+    )
+    tipo = models.CharField(max_length=50)
+    valor = models.CharField(max_length=100)
+    data_cadastro = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['tipo', 'valor', 'id']
+        unique_together = [('produto', 'tipo', 'valor')]
+
+    def __str__(self):
+        return f'{self.tipo}: {self.valor}'
+
+
+class FotoProduto(models.Model):
+    produto = models.ForeignKey(
+        Produto,
+        on_delete=models.CASCADE,
+        related_name='fotos',
+    )
+    imagem = models.ImageField(upload_to='produtos/')
+    ordem = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['ordem', 'id']
+
+    def __str__(self):
+        return f'Foto de {self.produto.nome} ({self.id})'

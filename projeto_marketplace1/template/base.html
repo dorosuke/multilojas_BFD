@@ -491,6 +491,9 @@
                 <a href="/api/front/login/" data-guest-link>Login</a>
                 <a href="/api/front/recuperar-senha/" data-guest-link>Recuperar senha</a>
                 <a href="/api/front/perfil/" data-auth-link class="hidden">Perfil</a>
+                <a href="/api/front/vendedor/" data-seller-link class="hidden">Painel vendedor</a>
+                <a href="/api/front/minha-loja/" data-seller-link class="hidden">Minha loja</a>
+                <a href="/api/front/meus-produtos/" data-seller-link class="hidden">Meus produtos</a>
                 <button type="button" class="ghost hidden" data-logout-button>Sair</button>
             </nav>
         </div>
@@ -657,11 +660,16 @@
 
             const hydrateNav = () => {
                 const authenticated = Boolean(getAccessToken());
+                const user = getStoredUser();
+                const isSeller = user && user.user && user.user.tipo === 'vendedor';
                 document.querySelectorAll('[data-auth-link]').forEach((element) => {
                     element.classList.toggle('hidden', !authenticated);
                 });
                 document.querySelectorAll('[data-guest-link]').forEach((element) => {
                     element.classList.toggle('hidden', authenticated);
+                });
+                document.querySelectorAll('[data-seller-link]').forEach((element) => {
+                    element.classList.toggle('hidden', !authenticated || !isSeller);
                 });
                 document.querySelectorAll('[data-logout-button]').forEach((element) => {
                     element.classList.toggle('hidden', !authenticated);

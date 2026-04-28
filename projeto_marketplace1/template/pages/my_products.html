@@ -1,0 +1,384 @@
+{% extends "base.html" %}
+
+{% block title %}Meus Produtos | MultiLojas{% endblock %}
+
+{% block content %}
+<section class="split" style="grid-template-columns: minmax(0, 1fr) minmax(360px, 430px);">
+    <div class="card">
+        <div class="inline-actions" style="justify-content:space-between; align-items:flex-start;">
+            <div>
+                <span class="eyebrow">Catalogo</span>
+                <h1 style="margin-top:0;">Meus produtos</h1>
+                <p class="muted">Cadastre, edite e organize os itens da sua loja.</p>
+            </div>
+            <button type="button" class="secondary" id="new-product-button">Novo produto</button>
+        </div>
+
+        <div id="products-feedback" class="feedback hidden" style="margin-top:16px;"></div>
+        <div id="products-list" class="grid" style="margin-top:18px;">
+            <article class="item">
+                <strong>Carregando catalogo...</strong>
+            </article>
+        </div>
+    </div>
+
+    <aside class="card">
+        <span class="eyebrow">Formulario</span>
+        <h2 class="section-title" id="product-form-title">Novo produto</h2>
+        <form id="product-form" class="form-grid">
+            <input type="hidden" name="product_id">
+
+            <label>
+                Nome do produto
+                <input type="text" name="nome" required>
+            </label>
+
+            <label>
+                Descricao detalhada
+                <textarea name="descricao" required></textarea>
+            </label>
+
+            <div class="form-grid two-col">
+                <label>
+                    Preco
+                    <input type="number" name="preco" step="0.01" min="0" required>
+                </label>
+                <label>
+                    Estoque inicial
+                    <input type="number" name="estoque" min="0" required>
+                </label>
+            </div>
+
+            <div class="form-grid two-col">
+                <label class="status info">
+                    <span>Destaque</span>
+                    <input type="checkbox" name="destaque" style="width:auto; margin-top:10px;">
+                </label>
+                <label class="status info">
+                    <span>Produto ativo</span>
+                    <input type="checkbox" name="ativo" style="width:auto; margin-top:10px;" checked>
+                </label>
+            </div>
+
+            <label>
+                Fotos do produto
+                <input type="file" id="photos-input" accept="image/*" multiple>
+            </label>
+
+            <div id="selected-photos" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(90px,1fr));"></div>
+            <div id="existing-photos" class="grid hidden" style="grid-template-columns:repeat(auto-fit,minmax(90px,1fr));"></div>
+
+            <div id="product-feedback" class="feedback hidden"></div>
+            <div class="inline-actions">
+                <button type="submit">Salvar produto</button>
+                <button type="button" class="ghost" id="reset-product-form">Limpar</button>
+            </div>
+        </form>
+    </aside>
+</section>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+    .photo-thumb {
+        position: relative;
+        overflow: hidden;
+        min-height: 110px;
+        border-radius: 16px;
+        border: 1px solid rgba(95, 71, 53, 0.12);
+        background: rgba(255, 255, 255, 0.82);
+        padding: 8px;
+    }
+
+    .photo-thumb img {
+        width: 100%;
+        height: 94px;
+        object-fit: cover;
+        border-radius: 12px;
+        display: block;
+    }
+
+    .photo-thumb button {
+        margin-top: 8px;
+        width: 100%;
+        padding: 8px 10px;
+        font-size: 0.88rem;
+    }
+
+    .product-card-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+    }
+
+    .product-card-actions button {
+        box-shadow: none;
+    }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const App = window.MarketplaceApp;
+        if (!App.requireAuth()) {
+            return;
+        }
+
+        const storedUser = App.getStoredUser();
+        if (!storedUser || storedUser.user.tipo !== 'vendedor') {
+            window.location.href = '/api/front/perfil/';
+            return;
+        }
+
+        const form = document.getElementById('product-form');
+        const formTitle = document.getElementById('product-form-title');
+        const listRoot = document.getElementById('products-list');
+        const productsFeedback = document.getElementById('products-feedback');
+        const formFeedback = document.getElementById('product-feedback');
+        const photosInput = document.getElementById('photos-input');
+        const selectedPhotosRoot = document.getElementById('selected-photos');
+        const existingPhotosRoot = document.getElementById('existing-photos');
+        const resetButton = document.getElementById('reset-product-form');
+        const newButton = document.getElementById('new-product-button');
+
+        let products = [];
+        let pendingPhotos = [];
+        let currentProduct = null;
+
+        const currency = (value) => `R$ ${Number(value).toFixed(2).replace('.', ',')}`;
+
+        const renderPendingPhotos = () => {
+            if (!pendingPhotos.length) {
+                selectedPhotosRoot.innerHTML = '';
+                return;
+            }
+
+            selectedPhotosRoot.innerHTML = pendingPhotos.map((file, index) => `
+                <article class="photo-thumb">
+                    <img src="${URL.createObjectURL(file)}" alt="${file.name}">
+                    <button type="button" class="ghost" data-remove-pending="${index}">Remover</button>
+                </article>
+            `).join('');
+        };
+
+        const renderExistingPhotos = (produto) => {
+            if (!produto || !produto.fotos.length) {
+                existingPhotosRoot.classList.add('hidden');
+                existingPhotosRoot.innerHTML = '';
+                return;
+            }
+
+            existingPhotosRoot.classList.remove('hidden');
+            existingPhotosRoot.innerHTML = produto.fotos.map((foto) => `
+                <article class="photo-thumb">
+                    <img src="${foto.imagem_url}" alt="Foto do produto">
+                    <button type="button" class="ghost" data-delete-photo="${foto.id}">Excluir</button>
+                </article>
+            `).join('');
+        };
+
+        const resetForm = () => {
+            currentProduct = null;
+            pendingPhotos = [];
+            form.reset();
+            form.ativo.checked = true;
+            form.product_id.value = '';
+            formTitle.textContent = 'Novo produto';
+            selectedPhotosRoot.innerHTML = '';
+            existingPhotosRoot.innerHTML = '';
+            existingPhotosRoot.classList.add('hidden');
+            App.hideFeedback(formFeedback);
+        };
+
+        const fillForm = (produto) => {
+            currentProduct = produto;
+            form.product_id.value = produto.id;
+            form.nome.value = produto.nome;
+            form.descricao.value = produto.descricao;
+            form.preco.value = produto.preco;
+            form.estoque.value = produto.estoque;
+            form.destaque.checked = produto.destaque;
+            form.ativo.checked = produto.ativo;
+            pendingPhotos = [];
+            selectedPhotosRoot.innerHTML = '';
+            renderExistingPhotos(produto);
+            formTitle.textContent = `Editar produto #${produto.id}`;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        const renderProducts = () => {
+            if (!products.length) {
+                listRoot.innerHTML = `
+                    <article class="item">
+                        <strong>Nenhum produto cadastrado.</strong>
+                        <p class="muted">Use o formulario ao lado para criar o primeiro item da loja.</p>
+                    </article>
+                `;
+                return;
+            }
+
+            listRoot.innerHTML = products.map((produto) => `
+                <article class="item">
+                    <span class="chip">${produto.status_estoque === 'indisponivel' ? 'Indisponivel' : produto.status_estoque === 'baixo' ? 'Estoque baixo' : 'Ativo'}</span>
+                    <h3>${produto.nome}</h3>
+                    <p class="muted">${currency(produto.preco)}</p>
+                    <p class="muted">${produto.estoque} unidade(s) em estoque</p>
+                    <p class="muted">${produto.total_fotos} foto(s) cadastrada(s)</p>
+                    <div class="product-card-actions">
+                        <button type="button" class="secondary" data-edit-product="${produto.id}">Editar</button>
+                        <button type="button" class="ghost" data-disable-product="${produto.id}">${produto.ativo ? 'Desativar' : 'Ja inativo'}</button>
+                    </div>
+                </article>
+            `).join('');
+        };
+
+        const loadProducts = async () => {
+            try {
+                const response = await App.apiFetch('/api/seller/products/');
+                products = response.data;
+                renderProducts();
+            } catch (error) {
+                listRoot.innerHTML = `<div class="status error">${error.message}</div>`;
+            }
+        };
+
+        const uploadPhotos = async (productId) => {
+            if (!pendingPhotos.length) {
+                return;
+            }
+
+            const formData = new FormData();
+            pendingPhotos.forEach((file) => formData.append('fotos', file));
+
+            const response = await fetch(`/api/seller/products/${productId}/photos/`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${App.getAccessToken()}`,
+                },
+                body: formData,
+            });
+
+            const data = await response.json();
+            if (!response.ok || data.success === false) {
+                throw new Error(App.normalizeError(data));
+            }
+        };
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            App.hideFeedback(formFeedback);
+
+            const payload = {
+                nome: form.nome.value,
+                descricao: form.descricao.value,
+                preco: form.preco.value,
+                estoque: form.estoque.value,
+                destaque: form.destaque.checked,
+                ativo: form.ativo.checked,
+            };
+
+            try {
+                let response;
+                if (currentProduct) {
+                    response = await App.apiFetch(`/api/seller/products/${currentProduct.id}/`, {
+                        method: 'PUT',
+                        body: JSON.stringify(payload),
+                    });
+                } else {
+                    response = await App.apiFetch('/api/seller/products/', {
+                        method: 'POST',
+                        body: JSON.stringify(payload),
+                    });
+                }
+
+                await uploadPhotos(response.data.id);
+                App.showToast(currentProduct ? 'Produto atualizado com sucesso.' : 'Produto criado com sucesso.', 'success');
+                App.setFeedback(formFeedback, currentProduct ? 'Produto atualizado com sucesso.' : 'Produto cadastrado com sucesso.', 'success');
+                resetForm();
+                await loadProducts();
+            } catch (error) {
+                App.showToast('Nao foi possivel salvar o produto.', 'error');
+                App.setFeedback(formFeedback, error.message, 'error');
+            }
+        });
+
+        photosInput.addEventListener('change', () => {
+            const files = Array.from(photosInput.files || []);
+            pendingPhotos = files.slice(0, 5);
+            if (files.length > 5) {
+                App.showToast('Selecione no maximo 5 imagens por vez.', 'error');
+            }
+            renderPendingPhotos();
+        });
+
+        selectedPhotosRoot.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-remove-pending]');
+            if (!button) {
+                return;
+            }
+            pendingPhotos.splice(Number(button.dataset.removePending), 1);
+            renderPendingPhotos();
+        });
+
+        existingPhotosRoot.addEventListener('click', async (event) => {
+            const button = event.target.closest('[data-delete-photo]');
+            if (!button || !currentProduct) {
+                return;
+            }
+
+            try {
+                await App.apiFetch(`/api/seller/product-photos/${button.dataset.deletePhoto}/`, {
+                    method: 'DELETE',
+                });
+                const updated = await App.apiFetch(`/api/seller/products/${currentProduct.id}/`);
+                currentProduct = updated.data;
+                renderExistingPhotos(currentProduct);
+                await loadProducts();
+                App.showToast('Foto removida com sucesso.', 'success');
+            } catch (error) {
+                App.showToast('Nao foi possivel remover a foto.', 'error');
+                App.setFeedback(formFeedback, error.message, 'error');
+            }
+        });
+
+        listRoot.addEventListener('click', async (event) => {
+            const editButton = event.target.closest('[data-edit-product]');
+            const disableButton = event.target.closest('[data-disable-product]');
+
+            if (editButton) {
+                const productId = Number(editButton.dataset.editProduct);
+                const response = await App.apiFetch(`/api/seller/products/${productId}/`);
+                fillForm(response.data);
+                return;
+            }
+
+            if (disableButton) {
+                const productId = Number(disableButton.dataset.disableProduct);
+                const produto = products.find((item) => item.id === productId);
+                if (!produto || !produto.ativo) {
+                    return;
+                }
+
+                try {
+                    await App.apiFetch(`/api/seller/products/${productId}/`, {
+                        method: 'DELETE',
+                    });
+                    App.showToast('Produto desativado com sucesso.', 'success');
+                    await loadProducts();
+                } catch (error) {
+                    App.showToast('Nao foi possivel desativar o produto.', 'error');
+                    App.setFeedback(productsFeedback, error.message, 'error');
+                }
+            }
+        });
+
+        resetButton.addEventListener('click', resetForm);
+        newButton.addEventListener('click', resetForm);
+
+        resetForm();
+        loadProducts();
+    });
+</script>
+{% endblock %}

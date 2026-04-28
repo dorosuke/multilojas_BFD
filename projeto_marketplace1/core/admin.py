@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import Comprador, User, Vendedor
+from .models import Categoria, Comprador, FotoProduto, Produto, User, VariacaoProduto, Vendedor
 
 
 @admin.register(User)
@@ -34,3 +34,30 @@ class VendedorAdmin(admin.ModelAdmin):
 class CompradorAdmin(admin.ModelAdmin):
     list_display = ['user', 'cpf']
     search_fields = ['user__email', 'cpf']
+
+
+@admin.register(Produto)
+class ProdutoAdmin(admin.ModelAdmin):
+    list_display = ['nome', 'vendedor', 'categoria', 'preco', 'estoque', 'destaque', 'ativo', 'data_cadastro']
+    list_filter = ['ativo', 'destaque', 'categoria', 'data_cadastro']
+    search_fields = ['nome', 'categoria__nome', 'vendedor__nome_loja', 'vendedor__user__email']
+
+
+@admin.register(Categoria)
+class CategoriaAdmin(admin.ModelAdmin):
+    list_display = ['nome', 'vendedor', 'parent', 'ativo', 'data_cadastro']
+    list_filter = ['ativo', 'data_cadastro']
+    search_fields = ['nome', 'vendedor__nome_loja', 'vendedor__user__email']
+
+
+@admin.register(VariacaoProduto)
+class VariacaoProdutoAdmin(admin.ModelAdmin):
+    list_display = ['produto', 'tipo', 'valor', 'data_cadastro']
+    list_filter = ['tipo', 'data_cadastro']
+    search_fields = ['produto__nome', 'produto__vendedor__nome_loja', 'tipo', 'valor']
+
+
+@admin.register(FotoProduto)
+class FotoProdutoAdmin(admin.ModelAdmin):
+    list_display = ['produto', 'ordem', 'imagem']
+    search_fields = ['produto__nome', 'produto__vendedor__nome_loja']
