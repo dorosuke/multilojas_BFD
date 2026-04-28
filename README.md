@@ -176,11 +176,6 @@ Credenciais administrativas atuais do ambiente local:
 - login: `admin@multilojas.local`
 - senha: `Admin@12345`
 
-Recomendacao:
-
-- altere a senha do administrador apos o primeiro acesso
-- em ambientes compartilhados ou de producao, substitua essas credenciais por valores proprios e seguros
-
 ## Observacoes importantes
 
 - o projeto aceita PostgreSQL como banco principal e SQLite como fallback local
