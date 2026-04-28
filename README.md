@@ -48,6 +48,27 @@ python projeto_marketplace1/manage.py migrate
 python projeto_marketplace1/manage.py runserver
 ```
 
+## Frontend (React + Vite)
+
+Existe um frontend React (Vite) em `frontend/` para consumir as rotas do backend.
+
+Requisitos:
+
+- Node.js 18+ e npm
+
+Como rodar:
+
+```bash
+cd frontend
+cp .env.example .env
+npm install
+npm run dev
+```
+
+Configuração:
+
+- `VITE_API_BASE_URL` (ex: `http://localhost:8000/api`)
+
 ## Variaveis de ambiente
 
 Exemplo em `.env.example`:
@@ -106,12 +127,17 @@ Backend:
 
 - configuracao inicial do projeto com Django + DRF
 - modelagem de `User`, `Vendedor` e `Comprador`
+- modelagem de `Produto` e `FotoProduto`
 - cadastro de vendedor
 - cadastro de comprador
 - login com JWT
 - consulta de perfil autenticado
 - atualizacao de perfil autenticado
 - recuperacao de senha com geracao de link
+- consulta e atualizacao da loja do vendedor
+- CRUD de produtos do vendedor
+- upload de ate 5 fotos por produto
+- desativacao de produto
 - resposta padronizada em JSON
 
 Frontend:
@@ -121,6 +147,9 @@ Frontend:
 - tela de login integrada com a API
 - tela de recuperacao de senha
 - tela de perfil protegida e editavel
+- painel do vendedor
+- tela "Minha Loja"
+- tela "Meus Produtos"
 - persistencia simples da sessao no navegador com JWT
 
 ## Como testar o sistema atual
@@ -169,9 +198,11 @@ Rotas visuais disponiveis:
 - `/api/front/cadastro/`
 - `/api/front/recuperar-senha/`
 - `/api/front/perfil/`
+- `/api/front/vendedor/`
+- `/api/front/minha-loja/`
+- `/api/front/meus-produtos/`
 - `/api/front/loja/moda-solar/`
 - `/api/front/produto/vestido-floral/`
-- `/api/front/vendedor/`
 - `/api/front/comprador/`
 
 Rotas da autenticacao ja integradas ao front:
@@ -182,6 +213,19 @@ Rotas da autenticacao ja integradas ao front:
 - `/api/auth/profile/`
 - `/api/auth/password-reset/request/`
 - `/api/auth/password-reset/confirm/`
+- `/api/seller/store/`
+- `/api/seller/categories/`
+- `/api/seller/categories/<id>/`
+- `/api/seller/products/`
+- `/api/seller/products/<id>/`
+- `/api/seller/products/<id>/photos/`
+- `/api/seller/products/<id>/variations/`
+- `/api/seller/product-variations/<id>/`
+
+Rotas publicas:
+
+- `/api/lojas/`
+- `/api/lojas/<id>/`
 
 ## Documentos de apoio
 
