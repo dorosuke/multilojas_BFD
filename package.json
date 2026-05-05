@@ -1,0 +1,12 @@
+{
+  "name": "multilojas_BFD",
+  "version": "1.0.0",
+  "description": "Projeto multilojas",
+  "main": "index.js",
+  "scripts": {
+    "dev": "echo \"Nenhum ambiente Node configurado. Use Python/Django para rodar o projeto.\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
