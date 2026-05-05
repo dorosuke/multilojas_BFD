@@ -14,6 +14,8 @@ import ForgotPassword from './pages/ForgotPassword';
 import Search from './pages/Search';
 import PublicStore from './pages/PublicStore';
 import PublicProduct from './pages/PublicProduct';
+import Store from './pages/Store';
+import Product from './pages/Product';
 
 function PrivateRoute({ children }) {
   const { token } = useAuth();
@@ -29,6 +31,8 @@ export default function App() {
           <Route path="/busca" element={<Search />} />
           <Route path="/loja/:slug" element={<PublicStore />} />
           <Route path="/produto/:slug" element={<PublicProduct />} />
+          <Route path="/store/:id" element={<Store />} />
+          <Route path="/store/:storeId/product/:productId" element={<Product />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
