@@ -1,7 +1,12 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { CartProvider } from './contexts/CartContext';
+import { StoreProvider } from './contexts/StoreContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import './styles/theme.css';
+import Notification from './components/Notification';
+import Header from './components/Header';
 // Importe as páginas (criaremos em seguida)
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -25,8 +30,13 @@ function PrivateRoute({ children }) {
 export default function App() {
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
+      <NotificationProvider>
+        <StoreProvider>
+          <CartProvider>
+            <Router>
+              <Header />
+              <Notification />
+              <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/busca" element={<Search />} />
           <Route path="/loja/:slug" element={<PublicStore />} />
@@ -40,8 +50,11 @@ export default function App() {
           <Route path="/seller-dashboard" element={<PrivateRoute><SellerDashboard /></PrivateRoute>} />
           <Route path="/my-store" element={<PrivateRoute><MyStore /></PrivateRoute>} />
           <Route path="/my-products" element={<PrivateRoute><MyProducts /></PrivateRoute>} />
-        </Routes>
-      </Router>
+              </Routes>
+            </Router>
+          </CartProvider>
+        </StoreProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

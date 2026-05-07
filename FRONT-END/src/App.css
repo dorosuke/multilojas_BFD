@@ -1,3 +1,47 @@
+/* Toolbar/Header customizado */
+.toolbar-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  background: var(--primary, #6c2eb7);
+  color: #fff;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  height: 56px;
+  display: flex;
+  align-items: center;
+}
+.toolbar-content {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 56px;
+}
+.toolbar-left {
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.toolbar-link {
+  color: #fff;
+  text-decoration: none;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+.toolbar-link:hover {
+  background: var(--primary-dark, #4b1e7a);
+}
 .counter {
   font-size: 16px;
   padding: 5px 10px;
