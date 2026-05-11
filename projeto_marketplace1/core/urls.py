@@ -32,6 +32,7 @@ from .views import (
     seller_products_page,
     seller_store_page,
     store_page,
+    busca_unificada_view,
 )
 
 urlpatterns = [
@@ -66,4 +67,6 @@ urlpatterns = [
     path('front/cadastro/', register_page, name='front-register'),
     path('front/recuperar-senha/', forgot_password_page, name='front-forgot-password'),
     path('front/perfil/', profile_page, name='front-profile'),
+    path('busca-global/', busca_unificada_view, name='busca_unificada'),
 ]
+    

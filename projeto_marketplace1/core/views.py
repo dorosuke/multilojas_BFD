@@ -1,8 +1,10 @@
+from django.http import JsonResponse
 from django.db.models import Count, Q
 from django.shortcuts import render
 from rest_framework import permissions, status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.views import APIView
+from .models import Produto
 
 from .models import FotoProduto, Produto, User, VariacaoProduto, Vendedor
 from .serializers import (
@@ -739,3 +741,43 @@ def seller_store_page(request):
 
 def seller_products_page(request):
     return render(request, 'pages/my_products.html')
+
+
+def busca_unificada_view(request):
+    query = request.GET.get('q', '')
+   
+    categoria_id = request.GET.get('categoria')
+    loja_id = request.GET.get('loja')
+    preco_min = request.GET.get('preco_min')
+    preco_max = request.GET.get('preco_max')
+
+    
+    produtos = Produto.objects.all()
+
+    
+    if query:
+        produtos = produtos.filter(
+            Q(nome__icontains=query) | 
+            Q(categoria__nome__icontains=query) |
+            Q(vendedor__nome_loja__icontains=query)
+        )
+
+   
+    if categoria_id:
+        produtos = produtos.filter(categoria_id=categoria_id)
+    
+    if loja_id:
+        produtos = produtos.filter(vendedor_id=loja_id)
+    
+    if preco_min:
+        produtos = produtos.filter(preco__lte=preco_min)
+
+    if preco_max:
+        produtos = produtos.filter(preco__lte=preco_max)
+
+    context = {
+    'produtos': list(produtos.values('id', 'nome', 'preco')), # adicione os campos que o seu React usa
+    'query': query,
+    }
+
+    return JsonResponse(context, safe=False)

@@ -5,7 +5,7 @@ export default function Search() {
   const [q, setQ] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [filters, setFilters] = useState({ categoria: '', min: '', max: '', loja: '' });
+  const [filters, setFilters] = useState({ categoria: '', preco_min: '', preco_max: '', loja: '' });
 
   const doSearch = async e => {
     e && e.preventDefault();
@@ -14,12 +14,12 @@ export default function Search() {
       const params = new URLSearchParams();
       if (q) params.append('q', q);
       if (filters.categoria) params.append('categoria', filters.categoria);
-      if (filters.min) params.append('min', filters.min);
-      if (filters.max) params.append('max', filters.max);
-      if (filters.loja) params.append('loja', filters.loja);
-      const res = await fetch(`http://127.0.0.1:8000/api/front/busca/?${params.toString()}`);
+      if (filters.preco_min) params.append('preco_min', filters.preco_min);
+      if (filters.preco_max) params.append('preco_max', filters.preco_max);
+      //if (filters.loja) params.append('loja', filters.loja);
+      const res = await fetch(`http://127.0.0.1:8000/api/front/busca-global/?${params.toString()}`);
       const data = await res.json();
-      setResults(data.data || []);
+      setResults(Array.isArray(data) ? data : data.data || []);
     } catch (err) {
       setResults([]);
     } finally { setLoading(false); }
@@ -36,8 +36,8 @@ export default function Search() {
       </form>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <input name="categoria" placeholder="Categoria" value={filters.categoria} onChange={handleFilter} />
-        <input name="min" placeholder="Preço min" type="number" value={filters.min} onChange={handleFilter} />
-        <input name="max" placeholder="Preço max" type="number" value={filters.max} onChange={handleFilter} />
+        <input name="preco_min" placeholder="Preço min" type="number" value={filters.preco_min} onChange={handleFilter} />
+        <input name="preco_max" placeholder="Preço max" type="number" value={filters.preco_max} onChange={handleFilter} />
         <input name="loja" placeholder="Loja (slug)" value={filters.loja} onChange={handleFilter} />
       </div>
       {loading ? <div>Carregando...</div> : (
