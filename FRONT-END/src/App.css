@@ -1,3 +1,74 @@
+/* Grid de lojas na Home */
+.lojas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 28px;
+  margin-top: 24px;
+  padding-bottom: 32px;
+}
+/* Card estilo Netshoes */
+.loja-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 380px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 16px 0 rgba(0,0,0,0.07);
+  transition: box-shadow 0.2s, transform 0.2s;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.loja-card:hover {
+  box-shadow: 0 6px 24px 0 rgba(0,0,0,0.13);
+  transform: translateY(-2px) scale(1.02);
+}
+.loja-card img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 0;
+  background: #f7f7f7;
+}
+.loja-card h4 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 18px 0 4px 0;
+  color: var(--primary);
+  text-align: left;
+  padding: 0 18px;
+}
+.loja-card .loja-info {
+  color: var(--secondary);
+  font-size: 15px;
+  margin-bottom: 2px;
+  padding: 0 18px;
+}
+.loja-card p {
+  margin: 10px 0 0 0;
+  font-size: 15px;
+  color: #444;
+  padding: 0 18px;
+  flex: 1;
+}
+.loja-card .loja-btn {
+  margin: 18px 18px 18px 18px;
+  padding: 12px 0;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  text-align: center;
+  text-decoration: none;
+  transition: background 0.2s;
+  display: block;
+}
+.loja-card .loja-btn:hover {
+  background: var(--primary-dark);
+}
+}
 /* Toolbar/Header customizado */
 .toolbar-header {
   position: fixed;

@@ -72,7 +72,7 @@
         .brand {
             display: flex;
             align-items: center;
-            gap: 14px;
+            gap: 10px;
             text-decoration: none;
         }
 
@@ -116,6 +116,81 @@
             cursor: pointer;
             transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
         }
+
+        /* Hamburger e Sidebar (mobile) */
+        .hamburger {
+            --hamburger-size: 44px;
+            --hamburger-thickness: 4px;
+            --hamburger-gap: 20px;
+            --hamburger-color: var(--text);
+            --hamburger-active-color: var(--brand-dark);
+
+            display: inline-flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: var(--hamburger-size);
+            height: calc(var(--hamburger-thickness) * 3 + var(--hamburger-gap) * 2);
+            background: transparent;
+            border: none;
+            padding: 4px;
+            margin-left: 6px;
+            cursor: pointer;
+        }
+        .hamburger span {
+            display: block;
+            width: 100%;
+            height: var(--hamburger-thickness);
+            background: var(--hamburger-color);
+            border-radius: 8px;
+            transition: transform 260ms cubic-bezier(.2,.9,.3,1), opacity 200ms, background 200ms;
+            transform-origin: center;
+        }
+        .hamburger:focus { outline: 3px solid rgba(0,0,0,0.06); border-radius: 6px }
+        .hamburger[aria-expanded="true"] span:nth-child(1) {
+            transform: translateY(calc(var(--hamburger-thickness) + var(--hamburger-gap))) rotate(45deg);
+            background: var(--hamburger-active-color);
+        }
+        .hamburger[aria-expanded="true"] span:nth-child(2) {
+            opacity: 0;
+            transform: scaleX(0.2);
+        }
+        .hamburger[aria-expanded="true"] span:nth-child(3) {
+            transform: translateY(calc(-1 * (var(--hamburger-thickness) + var(--hamburger-gap)))) rotate(-45deg);
+            background: var(--hamburger-active-color);
+        }
+
+        .sidebar-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            z-index: 95;
+            pointer-events: none;
+        }
+        .sidebar-overlay.open { opacity: 1; visibility: visible; pointer-events: auto }
+
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: -320px;
+            width: 320px;
+            height: 100vh;
+            background: var(--surface-strong);
+            box-shadow: 2px 0 24px rgba(0,0,0,0.12);
+            padding: 20px;
+            transition: left 0.25s ease;
+            z-index: 100;
+            pointer-events: none;
+        }
+        .sidebar.open { left: 0; pointer-events: auto }
+        .sidebar-close { background: transparent; border: 0; font-size: 28px; position: absolute; top: 8px; right: 8px; cursor: pointer }
+        .sidebar-nav { margin-top: 36px }
+        .sidebar-nav ul { list-style: none; padding: 0; margin: 0 }
+        .sidebar-nav li { margin-bottom: 16px }
+        .sidebar-nav a { text-decoration: none; color: var(--brand-dark); font-weight: 700 }
 
         .nav a,
         .nav button {
@@ -479,6 +554,11 @@
         <div class="shell site-header-inner">
             <a class="brand" href="/">
                 <span class="brand-mark">ML</span>
+                <button type="button" class="hamburger" aria-label="Abrir menu" aria-expanded="false" id="tpl-hamburger">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
                 <span class="brand-text">
                     <strong>MultiLojas</strong>
                     <span>Marketplace para pequenos empreendedores</span>
@@ -487,9 +567,6 @@
 
             <nav class="nav">
                 <a href="/">Inicio</a>
-                <a href="/api/front/cadastro/">Cadastro</a>
-                <a href="/api/front/login/" data-guest-link>Login</a>
-                <a href="/api/front/recuperar-senha/" data-guest-link>Recuperar senha</a>
                 <a href="/api/front/perfil/" data-auth-link class="hidden">Perfil</a>
                 <a href="/api/front/vendedor/" data-seller-link class="hidden">Painel vendedor</a>
                 <a href="/api/front/minha-loja/" data-seller-link class="hidden">Minha loja</a>
@@ -499,6 +576,9 @@
         </div>
     </header>
 
+    <!-- Sidebar para navegação mobile (partial) -->
+    {% include 'partials/sidebar.html' %}
+
     <main class="page">
         <div class="shell">
             {% block content %}{% endblock %}
@@ -506,6 +586,46 @@
     </main>
 
     <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
+
+    <script>
+        (function(){
+            const hamburger = document.getElementById('tpl-hamburger');
+            const sidebar = document.getElementById('tpl-sidebar');
+            const overlay = document.getElementById('tpl-sidebar-overlay');
+            const closeBtn = document.getElementById('tpl-sidebar-close');
+
+            function openSidebar(){
+                sidebar.classList.add('open');
+                overlay.classList.add('open');
+                sidebar.setAttribute('aria-hidden','false');
+                overlay.setAttribute('aria-hidden','false');
+                if(hamburger){ hamburger.setAttribute('aria-expanded','true'); hamburger.classList.add('open'); }
+            }
+            function closeSidebar(){
+                sidebar.classList.remove('open');
+                overlay.classList.remove('open');
+                sidebar.setAttribute('aria-hidden','true');
+                overlay.setAttribute('aria-hidden','true');
+                if(hamburger){ hamburger.setAttribute('aria-expanded','false'); hamburger.classList.remove('open'); }
+            }
+
+            if(hamburger){
+                hamburger.addEventListener('click', function(e){
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openSidebar();
+                });
+            }
+            if(closeBtn){ closeBtn.addEventListener('click', function(e){ e.preventDefault(); closeSidebar(); }); }
+            if(overlay){ overlay.addEventListener('click', function(e){ e.preventDefault(); closeSidebar(); }); }
+
+            // fechar sidebar ao clicar em um link
+            document.addEventListener('click', function(e){
+                const a = e.target.closest('#tpl-sidebar a');
+                if(a){ closeSidebar(); }
+            });
+        })();
+    </script>
 
     <script>
         window.MarketplaceApp = (() => {

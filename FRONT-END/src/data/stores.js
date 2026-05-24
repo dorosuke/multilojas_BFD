@@ -38,27 +38,27 @@ const stores = [
   {
     id: 4,
     name: 'Boné Central',
-    category: 'Bones',
+    category: 'Acessórios',
     location: 'Curitiba, PR',
-    description: 'Bonés e acessórios streetwear — diversas marcas e estilos.',
+    description: 'Bonés, chapéus e acessórios para todos os estilos.',
     products: [
-      { id: 'b1', name: 'Boné Snapback', price: 79.9, images: ['https://source.unsplash.com/800x600/?cap,snapback','https://source.unsplash.com/800x600/?snapback,cap','https://source.unsplash.com/800x600/?baseball%20cap'] },
-      { id: 'b2', name: 'Boné Trucker', price: 69.9, images: ['https://source.unsplash.com/800x600/?trucker%20cap,cap','https://source.unsplash.com/800x600/?truckercap','https://source.unsplash.com/800x600/?cap,truck'] },
-      { id: 'b3', name: 'Boné Aba Curva', price: 59.9, images: ['https://source.unsplash.com/800x600/?curved%20cap,cap','https://source.unsplash.com/800x600/?cap,curved','https://source.unsplash.com/800x600/?cap,style'] }
+      { id: 'b1', name: 'Boné Snapback', price: 59.9, images: ['https://source.unsplash.com/800x600/?cap,snapback','https://source.unsplash.com/800x600/?cap,hat','https://source.unsplash.com/800x600/?snapback'] },
+      { id: 'b2', name: 'Chapéu Panamá', price: 89.9, images: ['https://source.unsplash.com/800x600/?panama,hat','https://source.unsplash.com/800x600/?hat,panama','https://source.unsplash.com/800x600/?panama%20hat'] }
     ]
   },
+  // Novo card extra
   {
     id: 5,
-    name: 'Mix Store',
-    category: 'Multicategory',
-    location: 'Porto Alegre, RS',
-    description: 'Loja multiuso com roupas, relógios, perfumes e acessórios.',
+    name: 'Tech Mania',
+    category: 'Eletrônicos',
+    location: 'Florianópolis, SC',
+    description: 'Gadgets, acessórios e novidades em tecnologia.',
     products: [
-      { id: 'm1', name: 'Camiseta Básica', price: 49.9, images: ['https://source.unsplash.com/800x600/?tshirt,casual','https://source.unsplash.com/800x600/?tee,shirt','https://source.unsplash.com/800x600/?casual%20tshirt'] },
-      { id: 'm2', name: 'Relógio Casual', price: 249.0, images: ['https://source.unsplash.com/800x600/?watch,casual','https://source.unsplash.com/800x600/?casual%20watch','https://source.unsplash.com/800x600/?everyday%20watch'] },
-      { id: 'm3', name: 'Perfume Unissex 50ml', price: 199.9, images: ['https://source.unsplash.com/800x600/?unisex%20perfume,fragrance','https://source.unsplash.com/800x600/?perfume,unisex','https://source.unsplash.com/800x600/?fragrance,unisex'] }
+      { id: 't1', name: 'Fone Bluetooth', price: 149.9, images: ['https://source.unsplash.com/800x600/?headphone,bluetooth','https://source.unsplash.com/800x600/?earbuds,tech'] },
+      { id: 't2', name: 'Smart Speaker', price: 299.0, images: ['https://source.unsplash.com/800x600/?smart,speaker','https://source.unsplash.com/800x600/?speaker,tech'] }
     ]
   }
+  // Se quiser adicionar mais lojas, adicione aqui, garantindo ids únicos
 ];
 
 export default stores;
