@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}Painel Admin | MultiLojas{% endblock %}
+
+{% block content %}
+<section class="hero-card">
+    <span class="eyebrow">Administração</span>
+    <div class="split">
+        <div>
+            <p class="kicker">Dashboard</p>
+            <h1 style="margin:0 0 14px; font-size:clamp(2rem, 5vw, 3.3rem); line-height:1.02;">Visão geral do marketplace.</h1>
+            <p class="muted" style="font-size:1.05rem; max-width:620px;">
+                Acompanhe métricas do sistema, itens com estoque baixo e pontos importantes para apresentação.
+            </p>
+            <div class="inline-actions" style="margin-top:22px;">
+                <a class="button" href="/admin/">Abrir Django Admin</a>
+                <a class="button secondary" href="/api/front/vendedor/">Painel vendedor</a>
+                <a class="button ghost" href="/api/front/">Vitrine pública</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <p class="kicker">Resumo</p>
+            <div id="admin-dashboard-stats" class="stats">
+                <div class="stat"><span class="muted">Carregando...</span><strong>—</strong></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section grid" style="grid-template-columns: 1.25fr 0.75fr;">
+    <div class="card">
+        <div class="inline-actions" style="justify-content:space-between; align-items:flex-start;">
+            <div>
+                <p class="kicker">Atenção</p>
+                <h2 class="section-title">Estoque baixo</h2>
+                <p class="muted">Produtos ativos com estoque entre 1 e 4.</p>
+            </div>
+        </div>
+        <div id="admin-dashboard-low-stock" class="grid">
+            <article class="item">
+                <strong>Carregando...</strong>
+            </article>
+        </div>
+    </div>
+
+    <aside class="card">
+        <p class="kicker">Regra de estoque</p>
+        <h2 class="section-title">O que acontece quando alguém compra?</h2>
+        <div id="admin-dashboard-notes" class="status info">
+            Carregando...
+        </div>
+        <div class="section" style="margin-top:18px;">
+            <p class="kicker">Atalhos</p>
+            <div class="form-grid">
+                <a class="button" href="/api/front/meus-produtos/">Gerenciar produtos</a>
+                <a class="button secondary" href="/api/front/minha-loja/">Minha loja</a>
+                <a class="button ghost" href="/api/front/busca/">Busca (templates)</a>
+            </div>
+        </div>
+    </aside>
+</section>
+
+<section class="section card">
+    <div class="inline-actions" style="justify-content:space-between; align-items:flex-start;">
+        <div>
+            <p class="kicker">Catálogo</p>
+            <h2 class="section-title">Produtos recentes</h2>
+        </div>
+        <a class="button ghost" href="/api/front/">Ver vitrine</a>
+    </div>
+    <div id="admin-dashboard-recent-products" class="grid">
+        <article class="item">
+            <strong>Carregando...</strong>
+        </article>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const App = window.MarketplaceApp;
+        if (!App.requireAuth()) {
+            return;
+        }
+
+        const storedUser = App.getStoredUser();
+        const isAdmin = storedUser && storedUser.user && (storedUser.user.is_staff || storedUser.user.is_superuser);
+        if (!isAdmin) {
+            window.location.href = '/api/front/perfil/';
+            return;
+        }
+
+        const statsRoot = document.getElementById('admin-dashboard-stats');
+        const lowStockRoot = document.getElementById('admin-dashboard-low-stock');
+        const recentRoot = document.getElementById('admin-dashboard-recent-products');
+        const notesRoot = document.getElementById('admin-dashboard-notes');
+
+        try {
+            const response = await App.apiFetch('/api/admin/dashboard/');
+            const stats = response.data.stats;
+
+            statsRoot.innerHTML = `
+                <div class="stat"><span class="muted">Usuários</span><strong>${stats.users}</strong></div>
+                <div class="stat"><span class="muted">Lojas</span><strong>${stats.stores}</strong></div>
+                <div class="stat"><span class="muted">Categorias</span><strong>${stats.categories}</strong></div>
+                <div class="stat"><span class="muted">Produtos</span><strong>${stats.products}</strong></div>
+                <div class="stat"><span class="muted">Públicos</span><strong>${stats.products_public}</strong></div>
+                <div class="stat"><span class="muted">Estoque baixo</span><strong>${stats.products_low_stock}</strong></div>
+                <div class="stat"><span class="muted">Sem estoque</span><strong>${stats.products_out_of_stock}</strong></div>
+            `;
+
+            const lowStock = response.data.low_stock || [];
+            if (!lowStock.length) {
+                lowStockRoot.innerHTML = `
+                    <article class="item">
+                        <strong>Nenhum item com estoque baixo.</strong>
+                        <p class="muted">Ótimo! Não há produtos ativos com estoque entre 1 e 4.</p>
+                    </article>
+                `;
+            } else {
+                lowStockRoot.innerHTML = lowStock.map((p) => `
+                    <article class="item">
+                        <span class="chip">Estoque: ${p.estoque}</span>
+                        <h3>${p.nome}</h3>
+                        <p class="muted">Loja: ${p.loja.nome_loja}</p>
+                        <div class="inline-actions" style="margin-top:12px;">
+                            <a class="button ghost" href="/api/front/produto/${p.id}/">Ver produto</a>
+                            <a class="button ghost" href="/api/front/loja/${p.loja.id}/">Ver loja</a>
+                        </div>
+                    </article>
+                `).join('');
+            }
+
+            const recent = response.data.recent_products || [];
+            recentRoot.innerHTML = recent.map((p) => `
+                <article class="item">
+                    <span class="chip">${p.ativo ? 'Ativo' : 'Inativo'} • Estoque: ${p.estoque}</span>
+                    <h3>${p.nome}</h3>
+                    <p class="muted">Loja: ${p.loja.nome_loja}</p>
+                    <p class="muted">Preço: R$ ${Number(p.preco).toFixed(2).replace('.', ',')}</p>
+                    <div class="inline-actions" style="margin-top:12px;">
+                        <a class="button ghost" href="/api/front/produto/${p.id}/">Abrir</a>
+                    </div>
+                </article>
+            `).join('') || `
+                <article class="item">
+                    <strong>Nenhum produto encontrado.</strong>
+                </article>
+            `;
+
+            const notes = response.data.notes || [];
+            notesRoot.className = 'status info';
+            notesRoot.textContent = notes.join('\\n');
+        } catch (error) {
+            statsRoot.innerHTML = `<div class="status error">${error.message}</div>`;
+            lowStockRoot.innerHTML = `<div class="status error">${error.message}</div>`;
+            recentRoot.innerHTML = `<div class="status error">${error.message}</div>`;
+            notesRoot.className = 'status error';
+            notesRoot.textContent = error.message;
+        }
+    });
+</script>
+{% endblock %}
+

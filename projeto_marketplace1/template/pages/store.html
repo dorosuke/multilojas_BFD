@@ -4,29 +4,107 @@
 
 {% block content %}
 <div class="box">
-    <h1>{{ store.name }}</h1>
-    <p>{{ store.description }}</p>
-    <p class="muted">{{ store.city }} | {{ store.contact }}</p>
+    <div class="store-head">
+        <div class="store-logo">
+            {% if store.logo_url %}
+                <img src="{{ store.logo_url }}" alt="{{ store.nome_loja }}">
+            {% else %}
+                <span>Logo</span>
+            {% endif %}
+        </div>
+        <div style="min-width:0;">
+            <h1 style="margin:0;">{{ store.nome_loja }}</h1>
+            <p class="muted" style="margin:10px 0 0;">
+                {{ store.descricao_loja }}
+            </p>
+        </div>
+    </div>
 </div>
 
 <div class="box">
     <h2>Categorias</h2>
     <div class="grid">
-        {% for category in store.categories %}
-        <div class="item">{{ category }}</div>
-        {% endfor %}
+        {% if categories %}
+            {% for category in categories %}
+            <div class="item">
+                <strong>{{ category.nome }}</strong>
+                {% if category.parent %}<div class="muted small">Subcategoria de {{ category.parent.nome }}</div>{% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="item muted">Nenhuma categoria cadastrada.</div>
+        {% endif %}
     </div>
 </div>
 
 <div class="box">
     <h2>Produtos</h2>
-    <div class="grid">
-        {% for product in products %}
-        <div class="item">
-            <strong>{{ product.name }}</strong>
-            <p class="muted">{{ product.price }}</p>
+    {% if products %}
+        <div class="carousel" style="margin-bottom:18px;">
+            {% for product in products|slice:":12" %}
+            <a class="carousel-item" href="/api/front/produto/{{ product.id }}/" title="Abrir produto">
+                <div class="thumb">
+                    {% with photo=product.fotos.all|first %}
+                        {% if photo %}
+                            <img src="{{ photo.imagem.url }}" alt="{{ product.nome }}">
+                        {% else %}
+                            <span class="muted">Sem foto</span>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+                <div class="meta">
+                    <strong class="truncate">{{ product.nome }}</strong>
+                    <div class="muted small">
+                        {% if product.categoria %}Categoria: {{ product.categoria.nome }}{% else %}Sem categoria{% endif %}
+                    </div>
+                    <div class="meta-row">
+                        <span class="price">R$ {{ product.preco }}</span>
+                        <span class="badge {% if product.estoque < 5 %}warn{% else %}ok{% endif %}">Estoque: {{ product.estoque }}</span>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
         </div>
-        {% endfor %}
+    {% endif %}
+
+    <div class="grid">
+        {% if products %}
+            {% for product in products %}
+            <div class="item">
+                <div class="store-product">
+                    <div class="thumb thumb-sm">
+                        {% with photo=product.fotos.all|first %}
+                            {% if photo %}
+                                <img src="{{ photo.imagem.url }}" alt="{{ product.nome }}">
+                            {% else %}
+                                <span class="muted">Sem foto</span>
+                            {% endif %}
+                        {% endwith %}
+                    </div>
+                    <div style="min-width:0;">
+                        <strong class="truncate">{{ product.nome }}</strong>
+                        <div class="muted small">R$ {{ product.preco }}</div>
+                        {% if product.categoria %}<div class="muted small">Categoria: {{ product.categoria.nome }}</div>{% endif %}
+                        {% if product.variacoes.all %}
+                            <div class="muted small">
+                                Variações:
+                                {% for v in product.variacoes.all|slice:":2" %}
+                                    {{ v.tipo }} {{ v.valor }}{% if not forloop.last %} ·{% endif %}
+                                {% endfor %}
+                                {% if product.variacoes.count > 2 %}…{% endif %}
+                            </div>
+                        {% endif %}
+                        <div class="muted small">Estoque: {{ product.estoque }}</div>
+                        <div style="margin-top:10px;">
+                            <a class="button ghost" href="/api/front/produto/{{ product.id }}/">Ver produto</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="item muted">Nenhum produto disponível (precisa estar ativo e com estoque &gt; 0).</div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

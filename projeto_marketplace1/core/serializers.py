@@ -5,14 +5,34 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
+from decimal import Decimal
 
-from .models import Categoria, Comprador, FotoProduto, Produto, User, VariacaoProduto, Vendedor
+from .models import (
+    Categoria,
+    Comprador,
+    FotoProduto,
+    Produto,
+    User,
+    VariacaoProduto,
+    Vendedor,
+    get_or_create_vendedor_for_user,
+)
 
 
 class UserSummarySerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'nome', 'email', 'telefone', 'tipo', 'data_cadastro', 'is_active']
+        fields = [
+            'id',
+            'nome',
+            'email',
+            'telefone',
+            'tipo',
+            'data_cadastro',
+            'is_active',
+            'is_staff',
+            'is_superuser',
+        ]
 
 
 class VendedorSerializer(serializers.ModelSerializer):
@@ -97,6 +117,54 @@ class ProdutoSerializer(serializers.ModelSerializer):
         ]
 
 
+class PublicProductCardSerializer(serializers.ModelSerializer):
+    loja = serializers.SerializerMethodField()
+    categoria = serializers.SerializerMethodField()
+    imagem_url = serializers.SerializerMethodField()
+    status_estoque = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Produto
+        fields = [
+            'id',
+            'nome',
+            'preco',
+            'estoque',
+            'status_estoque',
+            'imagem_url',
+            'loja',
+            'categoria',
+        ]
+
+    def get_loja(self, obj):
+        return {
+            'id': obj.vendedor_id,
+            'nome_loja': obj.vendedor.nome_loja,
+            'logo_url': obj.vendedor.logo_url,
+        }
+
+    def get_categoria(self, obj):
+        if not obj.categoria_id:
+            return None
+        return {'id': obj.categoria_id, 'nome': obj.categoria.nome}
+
+    def get_imagem_url(self, obj):
+        foto = obj.fotos.all().first()
+        if not foto:
+            return None
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(foto.imagem.url)
+        return foto.imagem.url
+
+    def get_status_estoque(self, obj):
+        if obj.estoque == 0:
+            return 'indisponivel'
+        if obj.estoque < 5:
+            return 'baixo'
+        return 'ok'
+
+
 class ProdutoCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Produto
@@ -112,10 +180,14 @@ class ProdutoCreateUpdateSerializer(serializers.ModelSerializer):
             return value
 
         request = self.context.get('request')
-        if not request or not request.user.is_authenticated or not hasattr(request.user, 'vendedor'):
+        if not request or not request.user.is_authenticated:
             raise serializers.ValidationError('Categoria inválida.')
 
-        if value.vendedor_id != request.user.vendedor.id:
+        vendedor = get_or_create_vendedor_for_user(request.user)
+        if not vendedor:
+            raise serializers.ValidationError('Categoria inválida.')
+
+        if value.vendedor_id != vendedor.id:
             raise serializers.ValidationError('Categoria deve pertencer à sua loja.')
         return value
 
@@ -135,9 +207,12 @@ class CategoriaCreateUpdateSerializer(serializers.ModelSerializer):
         if not value:
             return value
         request = self.context.get('request')
-        if not request or not request.user.is_authenticated or not hasattr(request.user, 'vendedor'):
+        if not request or not request.user.is_authenticated:
             raise serializers.ValidationError('Categoria pai inválida.')
-        if value.vendedor_id != request.user.vendedor.id:
+        vendedor = get_or_create_vendedor_for_user(request.user)
+        if not vendedor:
+            raise serializers.ValidationError('Categoria pai inválida.')
+        if value.vendedor_id != vendedor.id:
             raise serializers.ValidationError('Categoria pai deve pertencer à sua loja.')
         return value
 
@@ -395,3 +470,54 @@ def build_auth_payload(user):
         'access': str(refresh.access_token),
         'user': ProfileSerializer(user).data,
     }
+
+
+class OrderItemInputSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField()
+    quantity = serializers.IntegerField(min_value=1, max_value=99)
+
+
+class OrderCreateSerializer(serializers.Serializer):
+    store_id = serializers.IntegerField()
+    shipping_address = serializers.CharField()
+    items = OrderItemInputSerializer(many=True)
+
+    def validate_shipping_address(self, value):
+        value = (value or '').strip()
+        if len(value) < 10:
+            raise serializers.ValidationError('Informe um endereço de entrega válido.')
+        return value
+
+    def validate_items(self, value):
+        if not value:
+            raise serializers.ValidationError('Informe ao menos 1 item.')
+        return value
+
+
+class PedidoSerializer(serializers.Serializer):
+    def to_representation(self, instance):
+        return {
+            'id': instance.id,
+            'status': instance.status,
+            'shipping_address': instance.shipping_address,
+            'shipping_provider': instance.shipping_provider,
+            'shipping_value': str(instance.shipping_value),
+            'subtotal': str(instance.subtotal),
+            'total': str(instance.total),
+            'created_at': instance.created_at,
+            'loja': {
+                'id': instance.loja_id,
+                'nome_loja': instance.loja.nome_loja,
+                'logo_url': instance.loja.logo_url,
+            },
+            'itens': [
+                {
+                    'id': it.id,
+                    'quantity': it.quantity,
+                    'unit_price': str(it.unit_price),
+                    'total_price': str(it.total_price),
+                    'produto': PublicProductCardSerializer(it.produto, context=self.context).data,
+                }
+                for it in instance.itens.select_related('produto', 'produto__vendedor', 'produto__categoria').prefetch_related('produto__fotos')
+            ],
+        }

@@ -25,7 +25,22 @@ class UserManager(BaseUserManager):
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('Superusuário deve ter is_superuser=True.')
 
-        return self.create_user(email, password, **extra_fields)
+        user = self.create_user(email, password, **extra_fields)
+
+        try:
+            user.vendedor
+        except Exception:
+            Vendedor.objects.create(
+                user=user,
+                nome_loja=f'Admin - {user.nome}',
+                descricao_loja='Perfil de vendedor administrativo (ajuste os dados depois).',
+                logo_url='',
+                endereco_completo='(Defina o endereço completo no perfil do vendedor)',
+                cnpj='',
+                chave_pix=user.email,
+            )
+
+        return user
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -65,6 +80,27 @@ class Vendedor(models.Model):
 
     def __str__(self):
         return self.nome_loja
+
+
+def get_or_create_vendedor_for_user(user):
+    if not user or not getattr(user, 'is_authenticated', False):
+        return None
+
+    if hasattr(user, 'vendedor'):
+        return user.vendedor
+
+    if user.is_superuser or user.is_staff:
+        return Vendedor.objects.create(
+            user=user,
+            nome_loja=f'Admin - {user.nome}',
+            descricao_loja='Perfil de vendedor administrativo (ajuste os dados depois).',
+            logo_url='',
+            endereco_completo='(Defina o endereço completo no perfil do vendedor)',
+            cnpj='',
+            chave_pix=user.email,
+        )
+
+    return None
 
 
 class Comprador(models.Model):
@@ -166,3 +202,59 @@ class FotoProduto(models.Model):
 
     def __str__(self):
         return f'Foto de {self.produto.nome} ({self.id})'
+
+
+class Pedido(models.Model):
+    class Status(models.TextChoices):
+        CRIADO = 'criado', 'Criado'
+        CANCELADO = 'cancelado', 'Cancelado'
+
+    comprador = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='pedidos',
+    )
+    loja = models.ForeignKey(
+        Vendedor,
+        on_delete=models.CASCADE,
+        related_name='pedidos',
+    )
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.CRIADO)
+
+    shipping_address = models.TextField()
+    shipping_provider = models.CharField(max_length=50, default='correios_stub')
+    shipping_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+
+    def __str__(self):
+        return f'Pedido #{self.id} ({self.status})'
+
+
+class PedidoItem(models.Model):
+    pedido = models.ForeignKey(
+        Pedido,
+        on_delete=models.CASCADE,
+        related_name='itens',
+    )
+    produto = models.ForeignKey(
+        Produto,
+        on_delete=models.PROTECT,
+        related_name='pedido_itens',
+    )
+    quantity = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        ordering = ['id']
+
+    def __str__(self):
+        return f'Item #{self.id} x{self.quantity}'

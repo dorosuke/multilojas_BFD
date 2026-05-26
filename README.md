@@ -69,6 +69,18 @@ Configuração:
 
 - `VITE_API_BASE_URL` (ex: `http://localhost:8000/api`)
 
+Rotas do frontend (React):
+
+- `/` vitrine (lojas + produtos por loja)
+- `/loja/:id` página pública da loja
+- `/produto/:id` página pública do produto
+- `/busca` busca global (Sprint 6)
+- `/carrinho` carrinho + checkout por loja (Sprint 8)
+
+Observação sobre autenticação no React:
+
+- o frontend React reaproveita o JWT salvo no navegador pelo frontend em templates (chave `marketplace.access`)
+- para testar o fluxo de pedido (Sprint 8), faça login pelo template em `/api/front/login/` e depois use o React
 ## Variaveis de ambiente
 
 Exemplo em `.env.example`:
@@ -221,6 +233,16 @@ Rotas publicas:
 
 - `/api/lojas/`
 - `/api/lojas/<id>/`
+- `/api/lojas/<id>/produtos/?category=<id>&sort=price_asc` (Sprint 7)
+- `/api/vitrine/`
+- `/api/produtos/<id>/`
+- `/api/busca/?q=termo`
+- `/api/busca/filtros/?q=termo`
+
+Pedidos (Sprint 8):
+
+- `POST /api/orders/` cria um pedido (comprador autenticado)
+  - frete atual é `correios_stub` (regra simples) e pode ser substituído por integração real depois
 
 ## Documentos de apoio
 

@@ -4,35 +4,86 @@
 
 {% block content %}
 <div class="box">
-    <h1>{{ product.name }}</h1>
-    <p>{{ product.description }}</p>
-    <p>Loja: {{ product.store }}</p>
-    <p>Preco: {{ product.price }}</p>
-    <p>Estoque: {{ product.stock }}</p>
-</div>
-
-<div class="box">
-    <h2>Variacoes</h2>
-    <div class="grid">
-        {% for item in product.variations %}
-        <div class="item">Tamanho {{ item }}</div>
-        {% endfor %}
-        {% for color in product.colors %}
-        <div class="item">{{ color }}</div>
-        {% endfor %}
+    <div class="store-head">
+        <div class="store-logo">
+            {% if store.logo_url %}
+                <img src="{{ store.logo_url }}" alt="{{ store.nome_loja }}">
+            {% else %}
+                <span>Logo</span>
+            {% endif %}
+        </div>
+        <div style="min-width:0;">
+            <p class="kicker" style="margin:0;">Loja</p>
+            <h2 style="margin:6px 0 0;">{{ store.nome_loja }}</h2>
+            <a class="button ghost" style="margin-top:12px; display:inline-flex;" href="/api/front/loja/{{ store.id }}/">Ver vitrine</a>
+        </div>
     </div>
 </div>
 
 <div class="box">
-    <h2>Avaliacoes</h2>
-    <div class="grid">
-        {% for review in reviews %}
-        <div class="item">
-            <strong>{{ review.author }}</strong>
-            <p>{{ review.rating }}</p>
-            <p class="muted">{{ review.comment }}</p>
+    <div class="product-layout">
+        <div>
+            <div class="thumb product-hero">
+                {% if photos %}
+                    <img src="{{ photos.0.imagem.url }}" alt="{{ product.nome }}">
+                {% else %}
+                    <span class="muted">Sem foto</span>
+                {% endif %}
+            </div>
+            {% if photos|length > 1 %}
+                <div class="carousel" style="margin-top:12px;">
+                    {% for photo in photos|slice:"1:10" %}
+                        <a class="carousel-item carousel-item-sm" href="{{ photo.imagem.url }}" target="_blank" rel="noreferrer">
+                            <div class="thumb thumb-sm">
+                                <img src="{{ photo.imagem.url }}" alt="Foto do produto">
+                            </div>
+                        </a>
+                    {% endfor %}
+                </div>
+            {% endif %}
         </div>
-        {% endfor %}
+
+        <div class="card" style="box-shadow:none;">
+            <h1 style="margin-top:0;">
+                {% if product.nome %}
+                    {{ product.nome }}
+                {% else %}
+                    {{ product.name }}
+                {% endif %}
+            </h1>
+            {% if product.descricao %}
+                <p class="muted">{{ product.descricao }}</p>
+            {% elif product.description %}
+                <p class="muted">{{ product.description }}</p>
+            {% endif %}
+            <div class="meta-row" style="margin-top:14px;">
+                <span class="price">
+                    {% if product.preco %}R$ {{ product.preco }}{% else %}R$ {{ product.price }}{% endif %}
+                </span>
+                <span class="badge {% if product.estoque and product.estoque < 5 %}warn{% else %}ok{% endif %}">
+                    Estoque: {% if product.estoque is not None %}{{ product.estoque }}{% else %}{{ product.stock }}{% endif %}
+                </span>
+            </div>
+            {% if product.categoria %}
+                <p class="muted small" style="margin-top:12px;">Categoria: {{ product.categoria.nome }}</p>
+            {% endif %}
+
+            <div style="margin-top:18px;">
+                <h3 style="margin:0 0 10px;">Variações</h3>
+                <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+                    {% if variations %}
+                        {% for v in variations %}
+                            <div class="item">
+                                <strong>{{ v.tipo }}</strong>
+                                <div class="muted small">{{ v.valor }}</div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="item muted">Nenhuma variação cadastrada.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
