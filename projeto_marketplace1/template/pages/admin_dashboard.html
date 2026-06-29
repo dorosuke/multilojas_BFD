@@ -53,6 +53,8 @@
         <div class="section" style="margin-top:18px;">
             <p class="kicker">Atalhos</p>
             <div class="form-grid">
+                <a class="button" href="/admin/core/user/">CRUD de usuários</a>
+                <a class="button secondary" href="/admin/core/user/add/">Novo usuário</a>
                 <a class="button" href="/api/front/meus-produtos/">Gerenciar produtos</a>
                 <a class="button secondary" href="/api/front/minha-loja/">Minha loja</a>
                 <a class="button ghost" href="/api/front/busca/">Busca (templates)</a>
@@ -70,6 +72,25 @@
         <a class="button ghost" href="/api/front/">Ver vitrine</a>
     </div>
     <div id="admin-dashboard-recent-products" class="grid">
+        <article class="item">
+            <strong>Carregando...</strong>
+        </article>
+    </div>
+</section>
+
+<section class="section card">
+    <div class="inline-actions" style="justify-content:space-between; align-items:flex-start;">
+        <div>
+            <p class="kicker">Usuários</p>
+            <h2 class="section-title">Cadastrados no sistema</h2>
+            <p class="muted">O CRUD completo fica no Django Admin, com atalhos para editar cada conta.</p>
+        </div>
+        <div class="inline-actions">
+            <a class="button" href="/admin/core/user/">Abrir CRUD</a>
+            <a class="button secondary" href="/admin/core/user/add/">Cadastrar usuário</a>
+        </div>
+    </div>
+    <div id="admin-dashboard-users" class="grid">
         <article class="item">
             <strong>Carregando...</strong>
         </article>
@@ -96,6 +117,7 @@
         const lowStockRoot = document.getElementById('admin-dashboard-low-stock');
         const recentRoot = document.getElementById('admin-dashboard-recent-products');
         const notesRoot = document.getElementById('admin-dashboard-notes');
+        const usersRoot = document.getElementById('admin-dashboard-users');
 
         try {
             const response = await App.apiFetch('/api/admin/dashboard/');
@@ -150,6 +172,24 @@
                 </article>
             `;
 
+            const users = response.data.users || [];
+            usersRoot.innerHTML = users.map((user) => `
+                <article class="item">
+                    <span class="chip">${user.is_superuser ? 'Admin' : user.tipo} • ${user.is_active ? 'Ativo' : 'Inativo'}</span>
+                    <h3>${user.nome}</h3>
+                    <p class="muted">${user.email}</p>
+                    <p class="muted">${user.telefone || 'Sem telefone'}</p>
+                    <div class="inline-actions" style="margin-top:12px;">
+                        <a class="button ghost" href="/admin/core/user/${user.id}/change/">Editar</a>
+                        <a class="button ghost" href="/admin/core/user/${user.id}/delete/">Excluir</a>
+                    </div>
+                </article>
+            `).join('') || `
+                <article class="item">
+                    <strong>Nenhum usuário encontrado.</strong>
+                </article>
+            `;
+
             const notes = response.data.notes || [];
             notesRoot.className = 'status info';
             notesRoot.textContent = notes.join('\\n');
@@ -157,10 +197,10 @@
             statsRoot.innerHTML = `<div class="status error">${error.message}</div>`;
             lowStockRoot.innerHTML = `<div class="status error">${error.message}</div>`;
             recentRoot.innerHTML = `<div class="status error">${error.message}</div>`;
+            usersRoot.innerHTML = `<div class="status error">${error.message}</div>`;
             notesRoot.className = 'status error';
             notesRoot.textContent = error.message;
         }
     });
 </script>
 {% endblock %}
-

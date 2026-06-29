@@ -57,6 +57,15 @@
                         <input type="text" name="cnpj">
                     </label>
                 </div>
+                <div class="form-grid two-col">
+                    <label>
+                        CEP da loja
+                        <input type="text" name="cep_vendedor">
+                    </label>
+                    <div class="status info">
+                        CEP usado no calculo de frete e para localizar a loja.
+                    </div>
+                </div>
                 <label>
                     Endereco da loja
                     <textarea name="endereco_completo_vendedor"></textarea>
@@ -77,6 +86,10 @@
                         Mantenha suas informacoes sempre atualizadas.
                     </div>
                 </div>
+                <label>
+                    CEP de entrega
+                    <input type="text" name="cep_comprador">
+                </label>
                 <label>
                     Endereco de entrega
                     <textarea name="endereco_completo_comprador"></textarea>
@@ -130,9 +143,11 @@
 
             if (user.tipo === 'vendedor' && details) {
                 lines.push(`<div class="stat"><span class="muted">Loja</span><strong>${details.nome_loja || 'Nao informado'}</strong></div>`);
+                lines.push(`<div class="stat"><span class="muted">CEP</span><strong>${details.cep || 'Nao informado'}</strong></div>`);
             }
             if (user.tipo === 'comprador' && details) {
                 lines.push(`<div class="stat"><span class="muted">CPF</span><strong>${details.cpf || 'Nao informado'}</strong></div>`);
+                lines.push(`<div class="stat"><span class="muted">CEP</span><strong>${details.cep || 'Nao informado'}</strong></div>`);
             }
 
             summary.innerHTML = `<div class="stats">${lines.join('')}</div>`;
@@ -155,12 +170,14 @@
                 form.chave_pix.value = profile.vendedor.chave_pix || '';
                 form.logo_url.value = profile.vendedor.logo_url || '';
                 form.cnpj.value = profile.vendedor.cnpj || '';
+                form.cep_vendedor.value = profile.vendedor.cep || '';
                 form.endereco_completo_vendedor.value = profile.vendedor.endereco_completo || '';
                 form.descricao_loja.value = profile.vendedor.descricao_loja || '';
             }
 
             if (!isVendor && profile.comprador) {
                 form.cpf.value = profile.comprador.cpf || '';
+                form.cep_comprador.value = profile.comprador.cep || '';
                 form.endereco_completo_comprador.value = profile.comprador.endereco_completo || '';
             }
 
@@ -210,12 +227,14 @@
                     descricao_loja: form.descricao_loja.value,
                     logo_url: form.logo_url.value,
                     endereco_completo: form.endereco_completo_vendedor.value,
+                    cep: form.cep_vendedor.value,
                     cnpj: form.cnpj.value,
                     chave_pix: form.chave_pix.value,
                 });
             } else {
                 Object.assign(payload, {
                     cpf: form.cpf.value,
+                    cep: form.cep_comprador.value,
                     endereco_completo: form.endereco_completo_comprador.value,
                 });
             }

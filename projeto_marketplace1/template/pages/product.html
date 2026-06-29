@@ -68,6 +68,11 @@
                 <p class="muted small" style="margin-top:12px;">Categoria: {{ product.categoria.nome }}</p>
             {% endif %}
 
+            <div class="inline-actions" style="margin-top:16px;">
+                <button type="button" id="add-to-cart-button">Adicionar ao carrinho</button>
+                <a class="button ghost" href="/api/front/carrinho/">Ir ao carrinho</a>
+            </div>
+
             <div style="margin-top:18px;">
                 <h3 style="margin:0 0 10px;">Variações</h3>
                 <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
@@ -83,7 +88,46 @@
                     {% endif %}
                 </div>
             </div>
+
+            <div style="margin-top:20px;">
+                <h3 style="margin:0 0 10px;">Avaliações</h3>
+                {% if reviews %}
+                    {% for review in reviews %}
+                        <div class="item" style="margin-top:10px;">
+                            <strong>{{ review.comprador.nome }}</strong>
+                            <div class="muted small">Nota: {{ review.nota }} / 5</div>
+                            {% if review.comentario %}
+                                <p class="muted">{{ review.comentario }}</p>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="muted">Ainda não há avaliações para este produto.</div>
+                {% endif %}
+            </div>
         </div>
     </div>
 </div>
+<script>
+    (function () {
+        const button = document.getElementById('add-to-cart-button');
+        if (!button) return;
+        const cartKey = 'multilojas.cart.v1';
+        button.addEventListener('click', () => {
+            const cart = JSON.parse(localStorage.getItem(cartKey) || '[]');
+            const existing = cart.find((item) => Number(item.product_id) === Number({{ product.id }}));
+            const payload = {
+                store_id: Number({{ store.id }}),
+                product_id: Number({{ product.id }}),
+                qty: existing ? Math.min(99, Number(existing.qty || 1) + 1) : 1,
+            };
+            const next = existing
+                ? cart.map((item) => Number(item.product_id) === Number({{ product.id }}) ? payload : item)
+                : [...cart, payload];
+            localStorage.setItem(cartKey, JSON.stringify(next));
+            button.textContent = 'Adicionado!';
+            window.setTimeout(() => { button.textContent = 'Adicionar ao carrinho'; }, 1200);
+        });
+    })();
+</script>
 {% endblock %}

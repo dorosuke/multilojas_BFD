@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import Categoria, Comprador, FotoProduto, Produto, User, VariacaoProduto, Vendedor
+from .models import AvaliacaoProduto, Categoria, Comprador, FotoProduto, Pedido, Produto, User, VariacaoProduto, Vendedor
 
 
 @admin.register(User)
@@ -61,3 +61,17 @@ class VariacaoProdutoAdmin(admin.ModelAdmin):
 class FotoProdutoAdmin(admin.ModelAdmin):
     list_display = ['produto', 'ordem', 'imagem']
     search_fields = ['produto__nome', 'produto__vendedor__nome_loja']
+
+
+@admin.register(Pedido)
+class PedidoAdmin(admin.ModelAdmin):
+    list_display = ['id', 'comprador', 'loja', 'status', 'total', 'created_at']
+    list_filter = ['status', 'created_at']
+    search_fields = ['comprador__email', 'comprador__nome', 'loja__nome_loja', 'tracking_code']
+
+
+@admin.register(AvaliacaoProduto)
+class AvaliacaoProdutoAdmin(admin.ModelAdmin):
+    list_display = ['produto', 'comprador', 'nota', 'data_avaliacao']
+    list_filter = ['nota', 'data_avaliacao']
+    search_fields = ['produto__nome', 'comprador__email', 'comentario']

@@ -8,6 +8,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from decimal import Decimal
 
 from .models import (
+    AvaliacaoProduto,
     Categoria,
     Comprador,
     FotoProduto,
@@ -43,6 +44,7 @@ class VendedorSerializer(serializers.ModelSerializer):
             'descricao_loja',
             'logo_url',
             'endereco_completo',
+            'cep',
             'cnpj',
             'chave_pix',
         ]
@@ -51,7 +53,7 @@ class VendedorSerializer(serializers.ModelSerializer):
 class CompradorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comprador
-        fields = ['cpf', 'endereco_completo']
+        fields = ['cpf', 'endereco_completo', 'cep']
 
 
 class FotoProdutoSerializer(serializers.ModelSerializer):
@@ -289,6 +291,7 @@ class RegistroVendedorSerializer(serializers.Serializer):
     descricao_loja = serializers.CharField(required=False, allow_blank=True)
     logo_url = serializers.URLField(required=False, allow_blank=True)
     endereco_completo = serializers.CharField()
+    cep = serializers.CharField(required=False, allow_blank=True)
     cnpj = serializers.CharField(required=False, allow_blank=True)
     chave_pix = serializers.CharField(max_length=255)
 
@@ -303,6 +306,7 @@ class RegistroVendedorSerializer(serializers.Serializer):
             'descricao_loja': validated_data.pop('descricao_loja', ''),
             'logo_url': validated_data.pop('logo_url', ''),
             'endereco_completo': validated_data.pop('endereco_completo'),
+            'cep': ''.join(ch for ch in validated_data.pop('cep', '') if ch.isdigit()),
             'cnpj': validated_data.pop('cnpj', ''),
             'chave_pix': validated_data.pop('chave_pix'),
         }
@@ -323,6 +327,7 @@ class RegistroCompradorSerializer(serializers.Serializer):
     telefone = serializers.CharField(max_length=20)
     cpf = serializers.CharField(max_length=14)
     endereco_completo = serializers.CharField()
+    cep = serializers.CharField(required=False, allow_blank=True)
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
@@ -333,6 +338,7 @@ class RegistroCompradorSerializer(serializers.Serializer):
         comprador_data = {
             'cpf': validated_data.pop('cpf'),
             'endereco_completo': validated_data.pop('endereco_completo'),
+            'cep': ''.join(ch for ch in validated_data.pop('cep', '') if ch.isdigit()),
         }
         senha = validated_data.pop('senha')
         user = User.objects.create_user(
@@ -431,6 +437,7 @@ class ProfileUpdateSerializer(serializers.Serializer):
     descricao_loja = serializers.CharField(required=False, allow_blank=True)
     logo_url = serializers.URLField(required=False, allow_blank=True)
     endereco_completo = serializers.CharField(required=False)
+    cep = serializers.CharField(required=False, allow_blank=True)
     cnpj = serializers.CharField(required=False, allow_blank=True)
     chave_pix = serializers.CharField(max_length=255, required=False)
 
@@ -445,16 +452,22 @@ class ProfileUpdateSerializer(serializers.Serializer):
 
         if instance.tipo == User.UserType.VENDEDOR and hasattr(instance, 'vendedor'):
             vendedor = instance.vendedor
-            for field in ['nome_loja', 'descricao_loja', 'logo_url', 'endereco_completo', 'cnpj', 'chave_pix']:
+            for field in ['nome_loja', 'descricao_loja', 'logo_url', 'endereco_completo', 'cep', 'cnpj', 'chave_pix']:
                 if field in validated_data:
-                    setattr(vendedor, field, validated_data[field])
+                    value = validated_data[field]
+                    if field == 'cep':
+                        value = ''.join(ch for ch in (value or '') if ch.isdigit())
+                    setattr(vendedor, field, value)
             vendedor.save()
 
         if instance.tipo == User.UserType.COMPRADOR and hasattr(instance, 'comprador'):
             comprador = instance.comprador
-            for field in ['cpf', 'endereco_completo']:
+            for field in ['cpf', 'endereco_completo', 'cep']:
                 if field in validated_data:
-                    setattr(comprador, field, validated_data[field])
+                    value = validated_data[field]
+                    if field == 'cep':
+                        value = ''.join(ch for ch in (value or '') if ch.isdigit())
+                    setattr(comprador, field, value)
             comprador.save()
 
         return instance
@@ -480,6 +493,7 @@ class OrderItemInputSerializer(serializers.Serializer):
 class OrderCreateSerializer(serializers.Serializer):
     store_id = serializers.IntegerField()
     shipping_address = serializers.CharField()
+    shipping_postal_code = serializers.CharField(required=False, allow_blank=True)
     items = OrderItemInputSerializer(many=True)
 
     def validate_shipping_address(self, value):
@@ -493,22 +507,43 @@ class OrderCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError('Informe ao menos 1 item.')
         return value
 
+    def validate_shipping_postal_code(self, value):
+        value = ''.join(ch for ch in (value or '') if ch.isdigit())
+        if value and len(value) != 8:
+            raise serializers.ValidationError('Informe um CEP com 8 dígitos.')
+        return value
+
 
 class PedidoSerializer(serializers.Serializer):
     def to_representation(self, instance):
         return {
             'id': instance.id,
             'status': instance.status,
+            'status_label': instance.get_status_display(),
             'shipping_address': instance.shipping_address,
             'shipping_provider': instance.shipping_provider,
             'shipping_value': str(instance.shipping_value),
             'subtotal': str(instance.subtotal),
             'total': str(instance.total),
+            'tracking_code': instance.tracking_code,
+            'rejection_reason': instance.rejection_reason,
+            'payment_submitted_at': instance.payment_submitted_at,
+            'data_aprovacao': instance.data_aprovacao,
+            'shipped_at': instance.shipped_at,
+            'comprovante_url': instance.comprovante_url,
+            'comprovante_pagamento_url': self.get_comprovante_url(instance),
             'created_at': instance.created_at,
+            'comprador': {
+                'id': instance.comprador_id,
+                'nome': instance.comprador.nome,
+                'email': instance.comprador.email,
+                'telefone': instance.comprador.telefone,
+            },
             'loja': {
                 'id': instance.loja_id,
                 'nome_loja': instance.loja.nome_loja,
                 'logo_url': instance.loja.logo_url,
+                'chave_pix': instance.loja.chave_pix,
             },
             'itens': [
                 {
@@ -521,3 +556,49 @@ class PedidoSerializer(serializers.Serializer):
                 for it in instance.itens.select_related('produto', 'produto__vendedor', 'produto__categoria').prefetch_related('produto__fotos')
             ],
         }
+
+    def get_comprovante_url(self, instance):
+        if getattr(instance, 'comprovante_url', ''):
+            return instance.comprovante_url
+        if not getattr(instance, 'comprovante_pagamento', None):
+            return None
+        request = self.context.get('request')
+        try:
+            url = instance.comprovante_pagamento.url
+        except ValueError:
+            return None
+        return request.build_absolute_uri(url) if request else url
+
+
+class PaymentProofUploadSerializer(serializers.Serializer):
+    comprovante = serializers.FileField()
+
+    def validate_comprovante(self, value):
+        allowed_content_types = {'image/jpeg', 'image/png', 'image/webp', 'application/pdf'}
+        content_type = getattr(value, 'content_type', '')
+        if content_type and content_type not in allowed_content_types:
+            raise serializers.ValidationError('Envie uma imagem JPG/PNG/WEBP ou PDF.')
+        if value.size > 5 * 1024 * 1024:
+            raise serializers.ValidationError('O comprovante deve ter no máximo 5MB.')
+        return value
+
+
+class OrderRejectSerializer(serializers.Serializer):
+    motivo = serializers.CharField(min_length=5, max_length=500)
+
+
+class OrderShipSerializer(serializers.Serializer):
+    tracking_code = serializers.CharField(min_length=3, max_length=100)
+
+
+class AvaliacaoProdutoSerializer(serializers.ModelSerializer):
+    comprador = UserSummarySerializer(read_only=True)
+
+    class Meta:
+        model = AvaliacaoProduto
+        fields = ['id', 'comprador', 'nota', 'comentario', 'data_avaliacao']
+
+
+class AvaliacaoProdutoCreateSerializer(serializers.Serializer):
+    nota = serializers.IntegerField(min_value=1, max_value=5)
+    comentario = serializers.CharField(required=False, allow_blank=True)

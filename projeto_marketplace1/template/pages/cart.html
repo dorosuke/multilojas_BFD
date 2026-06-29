@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+
+{% block title %}Carrinho | MultiLojas{% endblock %}
+
+{% block content %}
+<section class="hero-card">
+    <span class="eyebrow">Carrinho</span>
+    <h1 style="margin:0 0 12px;">Revise seus produtos e finalize por loja.</h1>
+    <p class="muted" style="max-width:720px;">
+        O carrinho fica salvo no navegador e agrupa itens por loja. Antes de concluir você confere o endereço e o frete calculado.
+    </p>
+</section>
+
+<section class="section">
+    <div class="card">
+        <h2 class="section-title">Endereço de entrega</h2>
+        <p class="muted">
+            Para apresentar, você pode usar o endereço de teste abaixo ou carregar o endereço salvo no perfil.
+        </p>
+        <div class="form-grid two-col">
+            <label>
+                CEP
+                <input id="shipping-cep" placeholder="01001000" value="01001000">
+            </label>
+            <label>
+                Referência
+                <input id="shipping-reference" value="Praça da Sé, São Paulo - SP" disabled>
+            </label>
+        </div>
+        <label style="margin-top:10px;">
+            Endereço completo
+            <textarea id="shipping-address" rows="3" placeholder="Rua, número, bairro, cidade/UF">Praça da Sé, 100, Sé, São Paulo - SP</textarea>
+        </label>
+        <div class="inline-actions" style="margin-top:12px;">
+            <button type="button" class="secondary" id="use-profile-address">Usar endereço do perfil</button>
+            <button type="button" class="ghost" data-demo-address="se">Usar Praça da Sé</button>
+            <button type="button" class="ghost" data-demo-address="paulista">Usar Av. Paulista</button>
+            <a class="button ghost" href="/api/front/busca/">Continuar comprando</a>
+        </div>
+        <div class="status info" style="margin-top:12px;">
+            Ao finalizar, o sistema cria o pedido, baixa o estoque vendido e abre a página PIX automaticamente.
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div id="cart-feedback" class="feedback hidden"></div>
+    <div id="cart-root" class="grid"></div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  (function () {
+    const App = window.MarketplaceApp;
+    const CART_KEY = 'multilojas.cart.v1';
+    const root = document.getElementById('cart-root');
+    const feedback = document.getElementById('cart-feedback');
+    const shippingAddress = document.getElementById('shipping-address');
+    const shippingCep = document.getElementById('shipping-cep');
+    const shippingReference = document.getElementById('shipping-reference');
+    const useProfileBtn = document.getElementById('use-profile-address');
+    const demoAddresses = {
+      se: {
+        cep: '01001000',
+        address: 'Praça da Sé, 100, Sé, São Paulo - SP',
+        reference: 'Praça da Sé, São Paulo - SP',
+      },
+      paulista: {
+        cep: '01310000',
+        address: 'Avenida Paulista, 1000, Bela Vista, São Paulo - SP',
+        reference: 'Avenida Paulista, São Paulo - SP',
+      },
+    };
+    const defaultAddress = demoAddresses.se;
+
+    const money = (value) => `R$ ${Number(value || 0).toFixed(2)}`;
+
+    const loadCart = () => {
+      try {
+        const raw = localStorage.getItem(CART_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    };
+
+    const saveCart = (items) => localStorage.setItem(CART_KEY, JSON.stringify(items));
+
+    const groupByStore = (items) => {
+      const groups = new Map();
+      items.forEach((item) => {
+        const list = groups.get(item.store_id) || [];
+        list.push(item);
+        groups.set(item.store_id, list);
+      });
+      return Array.from(groups.entries()).map(([storeId, items]) => ({ storeId, items }));
+    };
+
+    const fetchProduct = async (id) => {
+      const response = await App.apiFetch(`/api/produtos/${id}/`, { auth: false });
+      return response.data || null;
+    };
+
+    const render = async () => {
+      const cart = loadCart();
+      if (!cart.length) {
+        root.innerHTML = `
+          <div class="card">
+            <strong>Carrinho vazio.</strong>
+            <p class="muted">Abra uma loja ou um produto e adicione itens ao carrinho.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const ids = [...new Set(cart.map((item) => item.product_id))];
+      const products = {};
+      await Promise.all(ids.map(async (id) => {
+        try {
+          products[id] = await fetchProduct(id);
+        } catch {
+          products[id] = null;
+        }
+      }));
+
+      const groups = groupByStore(cart);
+      root.innerHTML = groups.map((group) => {
+        const items = group.items.map((item) => {
+          const productData = products[item.product_id];
+          const product = productData?.produto || productData;
+          const storeName = productData?.loja?.nome_loja || `Loja #${group.storeId}`;
+          const photo = product?.fotos?.[0]?.imagem_url;
+          return `
+            <div class="item" data-product-id="${item.product_id}">
+              <div class="store-product">
+                <div class="thumb thumb-sm">${photo ? `<img src="${photo}" alt="${product?.nome || ''}">` : '<span class="muted">Sem foto</span>'}</div>
+                <div style="min-width:0; flex:1;">
+                  <strong class="truncate">${product?.nome || `Produto #${item.product_id}`}</strong>
+                  <div class="muted small">${storeName}</div>
+                  <div class="meta-row">
+                    <span class="price">${money(product?.preco)}</span>
+                    <span class="badge ok">Qtd: ${item.qty}</span>
+                  </div>
+                  <div class="muted small">Estoque disponível: ${product?.estoque ?? 'consultando'}</div>
+                </div>
+                <div class="inline-actions">
+                  <button type="button" class="ghost" data-minus="${item.product_id}">-</button>
+                  <button type="button" class="ghost" data-plus="${item.product_id}">+</button>
+                  <button type="button" class="ghost" data-remove="${item.product_id}">Remover</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        return `
+          <article class="card" data-store-id="${group.storeId}">
+            <div class="store-head">
+              <div>
+                <strong>Loja #${group.storeId}</strong>
+                <div class="muted small">${group.items.length} item(ns)</div>
+              </div>
+              <a class="button ghost" href="/api/front/loja/${group.storeId}/">Ver vitrine</a>
+            </div>
+            <div style="margin-top:12px;">${items}</div>
+            <div class="inline-actions" style="margin-top:12px;">
+              <button type="button" data-quote="${group.storeId}">Calcular frete</button>
+              <button type="button" class="secondary" data-checkout="${group.storeId}">Finalizar e ir para PIX</button>
+            </div>
+            <div class="status info" data-summary="${group.storeId}" style="margin-top:12px;">
+              Endereço pronto. Ao finalizar, o estoque vendido será baixado automaticamente.
+            </div>
+          </article>
+        `;
+      }).join('');
+    };
+
+    const updateCart = (productId, delta) => {
+      const cart = loadCart().map((item) => {
+        if (item.product_id !== Number(productId)) return item;
+        return { ...item, qty: Math.max(1, Number(item.qty || 1) + delta) };
+      });
+      saveCart(cart);
+      render();
+    };
+
+    const removeItem = (productId) => {
+      const cart = loadCart().filter((item) => item.product_id !== Number(productId));
+      saveCart(cart);
+      render();
+    };
+
+    const storeItems = (storeId) => loadCart()
+      .filter((item) => Number(item.store_id) === Number(storeId))
+      .map((item) => ({ product_id: item.product_id, quantity: Number(item.qty || 1) }));
+
+    const quoteShipping = async (storeId) => {
+      const response = await App.apiFetch('/api/shipping/quote/', {
+        method: 'POST',
+        auth: false,
+        body: JSON.stringify({
+          store_id: storeId,
+          destination_postal_code: shippingCep.value,
+          destination_address: shippingAddress.value,
+          items: storeItems(storeId),
+        }),
+      });
+      const summary = document.querySelector(`[data-summary="${storeId}"]`);
+      if (summary) {
+        summary.innerHTML = `
+          <div><strong>Frete:</strong> ${money(response.data.value)}</div>
+          <div><strong>Prazo:</strong> ${response.data.deadline_days} dias</div>
+          <div><strong>Fonte:</strong> ${response.data.api_source}</div>
+        `;
+      }
+    };
+
+    const checkout = async (storeId) => {
+      App.hideFeedback(feedback);
+      if (!App.getAccessToken()) {
+        App.setFeedback(feedback, 'Entre como comprador ou admin para finalizar a compra.', 'error');
+        window.setTimeout(() => { window.location.href = '/api/front/login/'; }, 900);
+        return;
+      }
+      if (!shippingCep.value.trim()) {
+        shippingCep.value = defaultAddress.cep;
+      }
+      if (!shippingAddress.value.trim()) {
+        shippingAddress.value = defaultAddress.address;
+      }
+      await quoteShipping(storeId);
+
+      const response = await App.apiFetch('/api/orders/', {
+        method: 'POST',
+        body: JSON.stringify({
+          store_id: storeId,
+          shipping_address: shippingAddress.value,
+          shipping_postal_code: shippingCep.value,
+          items: storeItems(storeId),
+        }),
+      });
+
+      const cart = loadCart().filter((item) => Number(item.store_id) !== Number(storeId));
+      saveCart(cart);
+      const orderId = response.data?.order?.id;
+      App.showToast('Pedido criado. Abrindo PIX...', 'success');
+      window.location.href = `/api/front/pagamento-pix/?pedido_id=${orderId}`;
+    };
+
+    useProfileBtn.addEventListener('click', async () => {
+      try {
+        const profile = await App.apiFetch('/api/auth/profile/');
+        const data = profile.data || {};
+        if (data.user?.tipo === 'comprador' && data.comprador) {
+          shippingAddress.value = data.comprador.endereco_completo || defaultAddress.address;
+          shippingCep.value = data.comprador.cep || defaultAddress.cep;
+          shippingReference.value = data.comprador.endereco_completo ? 'Endereço salvo no perfil' : defaultAddress.reference;
+        } else if (data.user?.is_staff || data.user?.is_superuser) {
+          shippingAddress.value = defaultAddress.address;
+          shippingCep.value = defaultAddress.cep;
+          shippingReference.value = defaultAddress.reference;
+        }
+      } catch (error) {
+        App.setFeedback(feedback, 'Faça login como comprador para usar o endereço do perfil.', 'error');
+      }
+    });
+
+    document.querySelectorAll('[data-demo-address]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const selected = demoAddresses[button.dataset.demoAddress] || defaultAddress;
+        shippingAddress.value = selected.address;
+        shippingCep.value = selected.cep;
+        shippingReference.value = selected.reference;
+        App.setFeedback(feedback, 'Endereço de teste preenchido. Agora é só finalizar e ir para o PIX.', 'success');
+      });
+    });
+
+    root.addEventListener('click', (event) => {
+      const minus = event.target.closest('[data-minus]');
+      const plus = event.target.closest('[data-plus]');
+      const remove = event.target.closest('[data-remove]');
+      const quote = event.target.closest('[data-quote]');
+      const checkoutBtn = event.target.closest('[data-checkout]');
+      if (minus) updateCart(minus.dataset.minus, -1);
+      if (plus) updateCart(plus.dataset.plus, 1);
+      if (remove) removeItem(remove.dataset.remove);
+      if (quote) quoteShipping(quote.dataset.quote).catch((error) => App.setFeedback(feedback, error.message || 'Não foi possível calcular o frete.', 'error'));
+      if (checkoutBtn) checkout(checkoutBtn.dataset.checkout).catch((error) => App.setFeedback(feedback, error.message || 'Não foi possível finalizar o pedido.', 'error'));
+    });
+
+    render().catch((error) => App.setFeedback(feedback, error.message || 'Não foi possível carregar o carrinho.', 'error'));
+  })();
+</script>
+{% endblock %}

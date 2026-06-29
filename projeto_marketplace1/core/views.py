@@ -1,15 +1,25 @@
 from django.db import models, transaction
 from django.db.models import Count, Q
+from django.http import HttpResponse
 from django.shortcuts import render
+from django.utils import timezone
+from reportlab.lib.pagesizes import A6
+from reportlab.pdfgen import canvas
+import io
 from rest_framework import permissions, status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.views import APIView
 from decimal import Decimal
 
-from .models import Categoria, FotoProduto, Pedido, PedidoItem, Produto, User, VariacaoProduto, Vendedor, get_or_create_vendedor_for_user
+from .models import AvaliacaoProduto, Categoria, FotoProduto, Pedido, PedidoItem, Produto, User, VariacaoProduto, Vendedor, get_or_create_vendedor_for_user
 from .serializers import (
     CategoriaCreateUpdateSerializer,
     CategoriaSerializer,
+    AvaliacaoProdutoCreateSerializer,
+    AvaliacaoProdutoSerializer,
+    OrderRejectSerializer,
+    OrderShipSerializer,
+    PaymentProofUploadSerializer,
     LoginSerializer,
     OrderCreateSerializer,
     PasswordResetConfirmSerializer,
@@ -30,6 +40,8 @@ from .serializers import (
     build_auth_payload,
 )
 from .utils import api_response
+from .notifications import notify_order_approved, notify_order_rejected, notify_order_shipped
+from .shipping import calculate_shipping_quote
 
 
 def ensure_vendor(user):
@@ -57,25 +69,28 @@ class ApiRootView(APIView):
 
     def get(self, request):
         return api_response(
-            data={
-                'project': 'MultiLojas',
-                'version': 'sprint-6',
-                'endpoints': {
-                    'health': '/api/health/',
-                    'registro_vendedor': '/api/auth/register/vendor/',
-                    'registro_comprador': '/api/auth/register/buyer/',
-                    'login': '/api/auth/login/',
-                    'perfil': '/api/auth/profile/',
-                    'lojas_publicas': '/api/lojas/',
-                    'loja_publica': '/api/lojas/<id>/',
-                    'loja_produtos': '/api/lojas/<id>/produtos/?category=<id>&sort=price_asc',
-                    'busca': '/api/busca/?q=termo',
-                    'busca_filtros': '/api/busca/filtros/?q=termo',
-                    'seller_categories': '/api/seller/categories/',
-                    'seller_products': '/api/seller/products/',
-                    'orders_create': '/api/orders/',
+                data={
+                    'project': 'MultiLojas',
+                    'version': 'sprint-final',
+                    'endpoints': {
+                        'health': '/api/health/',
+                        'registro_vendedor': '/api/auth/register/vendor/',
+                        'registro_comprador': '/api/auth/register/buyer/',
+                        'login': '/api/auth/login/',
+                        'perfil': '/api/auth/profile/',
+                        'lojas_publicas': '/api/lojas/',
+                        'loja_publica': '/api/lojas/<id>/',
+                        'loja_produtos': '/api/lojas/<id>/produtos/?category=<id>&sort=price_asc',
+                        'busca': '/api/busca/?q=termo',
+                        'busca_filtros': '/api/busca/filtros/?q=termo',
+                        'seller_categories': '/api/seller/categories/',
+                        'seller_products': '/api/seller/products/',
+                        'orders_create': '/api/orders/',
+                        'shipping_quote': '/api/shipping/quote/',
+                        'buyer_orders': '/api/buyer/orders/',
+                        'seller_orders': '/api/vendedor/pedidos/',
+                    },
                 },
-            },
             message='Backend inicial configurado com sucesso.',
         )
 
@@ -586,12 +601,29 @@ class PublicStoreListView(APIView):
 
         data = []
         for loja in lojas:
+            produtos_preview = []
+            produtos = (
+                Produto.objects.filter(vendedor=loja, ativo=True, estoque__gt=0)
+                .prefetch_related('fotos')
+                .order_by('-destaque', '-data_cadastro', 'id')[:3]
+            )
+            for produto in produtos:
+                foto = produto.fotos.first()
+                produtos_preview.append({
+                    'id': produto.id,
+                    'nome': produto.nome,
+                    'preco': produto.preco,
+                    'imagem_url': request.build_absolute_uri(foto.imagem.url) if foto else '',
+                    'estoque': produto.estoque,
+                })
+
             data.append({
                 'id': loja.id,
                 'nome_loja': loja.nome_loja,
                 'logo_url': loja.logo_url,
                 'descricao_resumida': (loja.descricao_loja or '')[:160],
                 'total_produtos_ativos': loja.total_produtos_ativos,
+                'produtos_preview': produtos_preview,
             })
 
         return api_response(
@@ -729,6 +761,16 @@ class PublicProductDetailView(APIView):
                 status_code=status.HTTP_404_NOT_FOUND,
             )
 
+        reviews = produto.avaliacoes.select_related('comprador').order_by('-data_avaliacao', '-id')[:8]
+        stats = produto.avaliacoes.aggregate(avg=models.Avg('nota'), total=Count('id'))
+        can_review = False
+        if request.user.is_authenticated and request.user.tipo == User.UserType.COMPRADOR:
+            can_review = Pedido.objects.filter(
+                comprador=request.user,
+                status=Pedido.Status.ENTREGUE,
+                itens__produto=produto,
+            ).exists()
+
         return api_response(
             data={
                 'produto': ProdutoSerializer(produto, context={'request': request}).data,
@@ -736,9 +778,102 @@ class PublicProductDetailView(APIView):
                     'id': produto.vendedor_id,
                     'nome_loja': produto.vendedor.nome_loja,
                     'logo_url': produto.vendedor.logo_url,
+                    'chave_pix': produto.vendedor.chave_pix,
                 },
+                'reviews': AvaliacaoProdutoSerializer(reviews, many=True).data,
+                'review_stats': {
+                    'average': round(float(stats['avg'] or 0), 1),
+                    'total': stats['total'],
+                },
+                'can_review': can_review,
             },
             message='Produto carregado com sucesso.',
+        )
+
+
+class PublicProductReviewView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get_product(self, product_id):
+        return Produto.objects.filter(id=product_id, ativo=True).first()
+
+    def get(self, request, product_id):
+        produto = self.get_product(product_id)
+        if not produto:
+            return api_response(
+                message='Produto não encontrado.',
+                success=False,
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        avaliacoes = produto.avaliacoes.select_related('comprador').order_by('-data_avaliacao', '-id')[:30]
+        stats = produto.avaliacoes.aggregate(avg=models.Avg('nota'), total=Count('id'))
+        return api_response(
+            data={
+                'stats': {
+                    'average': round(float(stats['avg'] or 0), 1),
+                    'total': stats['total'],
+                },
+                'reviews': AvaliacaoProdutoSerializer(avaliacoes, many=True).data,
+            },
+            message='Avaliações carregadas com sucesso.',
+        )
+
+    def post(self, request, product_id):
+        if not request.user.is_authenticated:
+            return api_response(
+                message='Faça login como comprador para avaliar o produto.',
+                success=False,
+                status_code=status.HTTP_401_UNAUTHORIZED,
+            )
+        if request.user.tipo != User.UserType.COMPRADOR:
+            return api_response(
+                message='Apenas compradores podem avaliar produtos.',
+                success=False,
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
+        produto = self.get_product(product_id)
+        if not produto:
+            return api_response(
+                message='Produto não encontrado.',
+                success=False,
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        has_delivered_order = Pedido.objects.filter(
+            comprador=request.user,
+            status=Pedido.Status.ENTREGUE,
+            itens__produto=produto,
+        ).exists()
+        if not has_delivered_order:
+            return api_response(
+                message='Você só pode avaliar após receber o pedido com esse produto.',
+                success=False,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = AvaliacaoProdutoCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        pedido = (
+            Pedido.objects.filter(comprador=request.user, status=Pedido.Status.ENTREGUE, itens__produto=produto)
+            .order_by('-created_at')
+            .first()
+        )
+        avaliacao, _ = AvaliacaoProduto.objects.update_or_create(
+            comprador=request.user,
+            produto=produto,
+            pedido=pedido,
+            defaults={
+                'nota': serializer.validated_data['nota'],
+                'comentario': serializer.validated_data.get('comentario', ''),
+            },
+        )
+        return api_response(
+            data=AvaliacaoProdutoSerializer(avaliacao).data,
+            message='Avaliação registrada com sucesso.',
+            status_code=status.HTTP_201_CREATED,
         )
 
 
@@ -942,6 +1077,80 @@ class AdminDashboardView(APIView):
             .order_by('estoque', '-data_cadastro')[:10]
         )
 
+        recent_products = (
+            Produto.objects.select_related('vendedor', 'categoria')
+            .order_by('-data_cadastro', '-id')[:12]
+        )
+
+        users = (
+            User.objects.order_by('-is_superuser', '-is_staff', 'tipo', 'nome', 'email')[:50]
+        )
+
+        return api_response(
+            data={
+                'stats': {
+                    'users': total_users,
+                    'sellers': total_sellers,
+                    'buyers': total_buyers,
+                    'stores': total_stores,
+                    'categories': total_categories,
+                    'products': total_products,
+                    'products_active': active_products,
+                    'products_public': public_products,
+                    'products_low_stock': low_stock,
+                    'products_out_of_stock': out_of_stock,
+                },
+                'users': [
+                    {
+                        'id': user.id,
+                        'nome': user.nome,
+                        'email': user.email,
+                        'telefone': user.telefone,
+                        'tipo': user.tipo,
+                        'is_active': user.is_active,
+                        'is_staff': user.is_staff,
+                        'is_superuser': user.is_superuser,
+                    }
+                    for user in users
+                ],
+                'low_stock': [
+                    {
+                        'id': produto.id,
+                        'nome': produto.nome,
+                        'preco': produto.preco,
+                        'estoque': produto.estoque,
+                        'ativo': produto.ativo,
+                        'loja': {
+                            'id': produto.vendedor_id,
+                            'nome_loja': produto.vendedor.nome_loja,
+                        },
+                    }
+                    for produto in low_stock_items
+                ],
+                'recent_products': [
+                    {
+                        'id': produto.id,
+                        'nome': produto.nome,
+                        'preco': produto.preco,
+                        'estoque': produto.estoque,
+                        'ativo': produto.ativo,
+                        'loja': {
+                            'id': produto.vendedor_id,
+                            'nome_loja': produto.vendedor.nome_loja,
+                        },
+                        'categoria': produto.categoria.nome if produto.categoria_id else None,
+                    }
+                    for produto in recent_products
+                ],
+                'notes': [
+                    'O Django Admin é o CRUD oficial de usuários, lojas, produtos, pedidos e categorias.',
+                    'A vitrine pública só mostra lojas que possuem produtos ativos com estoque.',
+                    'Produtos decorativos do front foram removidos: se aparecer na home, veio do banco.',
+                ],
+            },
+            message='Dashboard administrativo carregado com sucesso.',
+        )
+
 
 class OrderCreateView(APIView):
     """
@@ -951,9 +1160,9 @@ class OrderCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        if request.user.tipo != User.UserType.COMPRADOR:
+        if request.user.tipo != User.UserType.COMPRADOR and not request.user.is_staff:
             return api_response(
-                message='Apenas compradores podem finalizar pedidos.',
+                message='Apenas compradores ou administradores podem finalizar pedidos.',
                 success=False,
                 status_code=status.HTTP_403_FORBIDDEN,
             )
@@ -963,6 +1172,7 @@ class OrderCreateView(APIView):
 
         store_id = serializer.validated_data['store_id']
         shipping_address = serializer.validated_data['shipping_address']
+        shipping_postal_code = serializer.validated_data.get('shipping_postal_code', '')
         items = serializer.validated_data['items']
 
         loja = Vendedor.objects.filter(id=store_id, user__is_active=True).first()
@@ -973,9 +1183,9 @@ class OrderCreateView(APIView):
                 status_code=status.HTTP_404_NOT_FOUND,
             )
 
-        # Frete (stub): base + por item. Integração Correios pode ser plugada aqui depois.
         total_qty = sum(int(it['quantity']) for it in items)
-        shipping_value = (Decimal('10.00') + Decimal('2.00') * Decimal(total_qty)).quantize(Decimal('0.01'))
+        shipping_quote = calculate_shipping_quote(loja, shipping_postal_code, total_qty, shipping_address)
+        shipping_value = shipping_quote['value']
 
         with transaction.atomic():
             subtotal = Decimal('0.00')
@@ -1011,10 +1221,11 @@ class OrderCreateView(APIView):
                 comprador=request.user,
                 loja=loja,
                 shipping_address=shipping_address,
-                shipping_provider='correios_stub',
+                shipping_provider=shipping_quote['provider'],
                 shipping_value=shipping_value,
                 subtotal=subtotal,
                 total=total,
+                status=Pedido.Status.AGUARDANDO_PAGAMENTO,
             )
 
             for it in items:
@@ -1040,53 +1251,317 @@ class OrderCreateView(APIView):
             status_code=status.HTTP_201_CREATED,
         )
 
-        recent_products = (
-            Produto.objects.select_related('vendedor', 'categoria')
-            .order_by('-data_cadastro')[:8]
-        )
 
+class ShippingQuoteView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        store_id = request.data.get('store_id')
+        destination_postal_code = request.data.get('destination_postal_code') or request.data.get('cep')
+        destination_address = request.data.get('destination_address') or request.data.get('address') or ''
+        items = request.data.get('items') or []
+
+        loja = Vendedor.objects.filter(id=store_id, user__is_active=True).first()
+        if not loja:
+            return api_response(
+                message='Loja não encontrada para calcular o frete.',
+                success=False,
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        clean_cep = ''.join(ch for ch in str(destination_postal_code or '') if ch.isdigit())
+        if not clean_cep:
+            clean_cep = ''.join(ch for ch in str(destination_address or '') if ch.isdigit())
+
+        total_qty = 0
+        for item in items:
+            try:
+                total_qty += int(item.get('quantity', 1))
+            except (TypeError, ValueError, AttributeError):
+                total_qty += 1
+
+        quote = calculate_shipping_quote(loja, clean_cep, total_qty or 1, destination_address)
         return api_response(
             data={
-                'stats': {
-                    'users': total_users,
-                    'sellers': total_sellers,
-                    'buyers': total_buyers,
-                    'stores': total_stores,
-                    'categories': total_categories,
-                    'products': total_products,
-                    'products_active': active_products,
-                    'products_public': public_products,
-                    'products_out_of_stock': out_of_stock,
-                    'products_low_stock': low_stock,
-                },
-                'low_stock': [
-                    {
-                        'id': p.id,
-                        'nome': p.nome,
-                        'estoque': p.estoque,
-                        'loja': {'id': p.vendedor_id, 'nome_loja': p.vendedor.nome_loja},
-                    }
-                    for p in low_stock_items
-                ],
-                'recent_products': [
-                    {
-                        'id': p.id,
-                        'nome': p.nome,
-                        'preco': str(p.preco),
-                        'estoque': p.estoque,
-                        'ativo': p.ativo,
-                        'loja': {'id': p.vendedor_id, 'nome_loja': p.vendedor.nome_loja},
-                        'categoria': {'id': p.categoria_id, 'nome': p.categoria.nome} if p.categoria_id else None,
-                    }
-                    for p in recent_products
-                ],
-                'notes': [
-                    'Até a Sprint 6 não existe checkout/pedido; portanto o estoque não é decrementado automaticamente por compras.',
-                    'Quando o módulo de pedidos (Sprint 8+) for implementado, a regra esperada é decrementar o estoque ao criar o pedido.',
-                ],
+                **quote,
+                'value': str(quote['value']),
             },
-            message='Dashboard administrativo carregado com sucesso.',
+            message='Frete calculado com sucesso.',
         )
+
+
+class BuyerOrderListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if request.user.tipo != User.UserType.COMPRADOR and not request.user.is_staff:
+            return api_response(
+                message='Apenas compradores ou administradores podem acessar pedidos.',
+                success=False,
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
+        pedidos = (
+            Pedido.objects.all() if request.user.is_staff else Pedido.objects.filter(comprador=request.user)
+        )
+        pedidos = (
+            pedidos
+            .select_related('comprador', 'loja')
+            .prefetch_related('itens', 'itens__produto', 'itens__produto__vendedor', 'itens__produto__categoria', 'itens__produto__fotos')
+        )
+        return api_response(
+            data={'orders': PedidoSerializer(pedidos, many=True, context={'request': request}).data},
+            message='Pedidos do comprador carregados com sucesso.',
+        )
+
+
+class OrderPaymentProofView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, order_id):
+        serializer = PaymentProofUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        pedidos = Pedido.objects.filter(id=order_id)
+        if not request.user.is_staff:
+            pedidos = pedidos.filter(comprador=request.user)
+        pedido = (
+            pedidos
+            .select_related('comprador', 'loja')
+            .prefetch_related('itens', 'itens__produto', 'itens__produto__vendedor', 'itens__produto__categoria', 'itens__produto__fotos')
+            .first()
+        )
+        if not pedido:
+            return api_response(
+                message='Pedido não encontrado.',
+                success=False,
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        if pedido.status not in {Pedido.Status.AGUARDANDO_PAGAMENTO, Pedido.Status.CRIADO, Pedido.Status.REJEITADO}:
+            return api_response(
+                message='Este pedido não aceita novo comprovante neste status.',
+                success=False,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        pedido.comprovante_pagamento = serializer.validated_data['comprovante']
+        pedido.payment_submitted_at = timezone.now()
+        pedido.status = Pedido.Status.AGUARDANDO_APROVACAO
+        pedido.rejection_reason = ''
+        pedido.save(update_fields=['comprovante_pagamento', 'payment_submitted_at', 'status', 'rejection_reason', 'updated_at'])
+        try:
+            pedido.comprovante_url = request.build_absolute_uri(pedido.comprovante_pagamento.url)
+            pedido.save(update_fields=['comprovante_url', 'updated_at'])
+        except Exception:
+            pass
+
+        return api_response(
+            data={'order': PedidoSerializer(pedido, context={'request': request}).data},
+            message='Comprovante enviado. O pedido está aguardando aprovação do vendedor.',
+        )
+
+
+class SellerOrderListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if not ensure_vendor(request.user):
+            return api_response(
+                message='Apenas vendedores podem acessar pedidos da loja.',
+                success=False,
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
+        status_filter = (request.query_params.get('status') or '').strip()
+        pedidos = (
+            Pedido.objects.all() if request.user.is_staff else Pedido.objects.filter(loja=get_or_create_vendedor_for_user(request.user))
+        )
+        pedidos = (
+            pedidos
+            .select_related('comprador', 'loja')
+            .prefetch_related('itens', 'itens__produto', 'itens__produto__vendedor', 'itens__produto__categoria', 'itens__produto__fotos')
+        )
+        if status_filter:
+            pedidos = pedidos.filter(status=status_filter)
+        return api_response(
+            data={'orders': PedidoSerializer(pedidos, many=True, context={'request': request}).data},
+            message='Pedidos da loja carregados com sucesso.',
+        )
+
+
+class SellerPendingOrderListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if not ensure_vendor(request.user):
+            return api_response(
+                message='Apenas vendedores podem acessar pedidos pendentes.',
+                success=False,
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
+        pedidos = (
+            Pedido.objects.filter(status=Pedido.Status.AGUARDANDO_APROVACAO) if request.user.is_staff else Pedido.objects.filter(loja=get_or_create_vendedor_for_user(request.user), status=Pedido.Status.AGUARDANDO_APROVACAO)
+        )
+        pedidos = (
+            pedidos
+            .select_related('comprador', 'loja')
+            .prefetch_related('itens', 'itens__produto', 'itens__produto__vendedor', 'itens__produto__categoria', 'itens__produto__fotos')
+        )
+        return api_response(
+            data={'orders': PedidoSerializer(pedidos, many=True, context={'request': request}).data},
+            message='Pedidos pendentes carregados com sucesso.',
+        )
+
+
+class SellerOrderApproveView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def put(self, request, order_id):
+        if not ensure_vendor(request.user):
+            return api_response(message='Apenas vendedores podem aprovar pedidos.', success=False, status_code=status.HTTP_403_FORBIDDEN)
+
+        pedidos = Pedido.objects.filter(id=order_id)
+        if not request.user.is_staff:
+            pedidos = pedidos.filter(loja=get_or_create_vendedor_for_user(request.user))
+        pedido = pedidos.select_related('comprador', 'loja').first()
+        if not pedido:
+            return api_response(message='Pedido não encontrado.', success=False, status_code=status.HTTP_404_NOT_FOUND)
+        if pedido.status != Pedido.Status.AGUARDANDO_APROVACAO:
+            return api_response(message='Apenas pedidos aguardando aprovação podem ser aprovados.', success=False, status_code=status.HTTP_400_BAD_REQUEST)
+
+        pedido.status = Pedido.Status.PAGO
+        pedido.data_aprovacao = timezone.now()
+        pedido.rejection_reason = ''
+        pedido.save(update_fields=['status', 'data_aprovacao', 'rejection_reason', 'updated_at'])
+        notify_order_approved(pedido)
+        return api_response(data={'order': PedidoSerializer(pedido, context={'request': request}).data}, message='Pagamento aprovado com sucesso.')
+
+
+class SellerOrderRejectView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def put(self, request, order_id):
+        if not ensure_vendor(request.user):
+            return api_response(message='Apenas vendedores podem rejeitar pedidos.', success=False, status_code=status.HTTP_403_FORBIDDEN)
+
+        serializer = OrderRejectSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        pedidos = Pedido.objects.filter(id=order_id)
+        if not request.user.is_staff:
+            pedidos = pedidos.filter(loja=get_or_create_vendedor_for_user(request.user))
+        pedido = pedidos.select_related('comprador', 'loja').first()
+        if not pedido:
+            return api_response(message='Pedido não encontrado.', success=False, status_code=status.HTTP_404_NOT_FOUND)
+        if pedido.status != Pedido.Status.AGUARDANDO_APROVACAO:
+            return api_response(message='Apenas pedidos aguardando aprovação podem ser rejeitados.', success=False, status_code=status.HTTP_400_BAD_REQUEST)
+
+        pedido.status = Pedido.Status.REJEITADO
+        pedido.rejection_reason = serializer.validated_data['motivo']
+        pedido.save(update_fields=['status', 'rejection_reason', 'updated_at'])
+        notify_order_rejected(pedido)
+        return api_response(data={'order': PedidoSerializer(pedido, context={'request': request}).data}, message='Pagamento rejeitado com sucesso.')
+
+
+class SellerOrderShipView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def put(self, request, order_id):
+        if not ensure_vendor(request.user):
+            return api_response(message='Apenas vendedores podem enviar pedidos.', success=False, status_code=status.HTTP_403_FORBIDDEN)
+
+        serializer = OrderShipSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        pedidos = Pedido.objects.filter(id=order_id)
+        if not request.user.is_staff:
+            pedidos = pedidos.filter(loja=get_or_create_vendedor_for_user(request.user))
+        pedido = pedidos.select_related('comprador', 'loja').first()
+        if not pedido:
+            return api_response(message='Pedido não encontrado.', success=False, status_code=status.HTTP_404_NOT_FOUND)
+        if pedido.status != Pedido.Status.PAGO:
+            return api_response(message='Apenas pedidos pagos podem ser enviados.', success=False, status_code=status.HTTP_400_BAD_REQUEST)
+
+        pedido.status = Pedido.Status.ENVIADO
+        pedido.tracking_code = serializer.validated_data['tracking_code']
+        pedido.shipped_at = timezone.now()
+        pedido.save(update_fields=['status', 'tracking_code', 'shipped_at', 'updated_at'])
+        notify_order_shipped(pedido)
+        return api_response(data={'order': PedidoSerializer(pedido, context={'request': request}).data}, message='Pedido marcado como enviado.')
+
+
+class SellerOrderDeliverView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def put(self, request, order_id):
+        if not ensure_vendor(request.user):
+            return api_response(message='Apenas vendedores podem marcar pedidos como entregues.', success=False, status_code=status.HTTP_403_FORBIDDEN)
+
+        pedidos = Pedido.objects.filter(id=order_id)
+        if not request.user.is_staff:
+            pedidos = pedidos.filter(loja=get_or_create_vendedor_for_user(request.user))
+        pedido = pedidos.select_related('comprador', 'loja').first()
+        if not pedido:
+            return api_response(message='Pedido não encontrado.', success=False, status_code=status.HTTP_404_NOT_FOUND)
+        if pedido.status != Pedido.Status.ENVIADO:
+            return api_response(message='Apenas pedidos enviados podem ser marcados como entregues.', success=False, status_code=status.HTTP_400_BAD_REQUEST)
+
+        pedido.status = Pedido.Status.ENTREGUE
+        pedido.save(update_fields=['status', 'updated_at'])
+        return api_response(data={'order': PedidoSerializer(pedido, context={'request': request}).data}, message='Pedido marcado como entregue.')
+
+
+class SellerOrderLabelView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, order_id):
+        if not ensure_vendor(request.user):
+            return api_response(message='Apenas vendedores podem gerar etiquetas.', success=False, status_code=status.HTTP_403_FORBIDDEN)
+
+        pedido = (
+            Pedido.objects.filter(id=order_id)
+            if request.user.is_staff else Pedido.objects.filter(id=order_id, loja=get_or_create_vendedor_for_user(request.user))
+        )
+        pedido = (
+            pedido
+            .select_related('comprador', 'loja', 'comprador__comprador')
+            .prefetch_related('itens', 'itens__produto')
+            .first()
+        )
+        if not pedido:
+            return api_response(message='Pedido não encontrado.', success=False, status_code=status.HTTP_404_NOT_FOUND)
+
+        buffer = io.BytesIO()
+        pdf = canvas.Canvas(buffer, pagesize=A6)
+        pdf.setTitle(f'Etiqueta Pedido {pedido.id}')
+        pdf.setFont('Helvetica-Bold', 12)
+        pdf.drawString(20, 390, f'Etiqueta Pedido #{pedido.id}')
+        pdf.setFont('Helvetica', 9)
+        pdf.drawString(20, 372, f'Loja: {pedido.loja.nome_loja}')
+        pdf.drawString(20, 358, f'Origem: {pedido.loja.endereco_completo}')
+        pdf.drawString(20, 344, f'Destino: {pedido.shipping_address}')
+        pdf.drawString(20, 330, f'Comprador: {pedido.comprador.nome}')
+        pdf.drawString(20, 316, f'PIX: {pedido.loja.chave_pix}')
+        pdf.drawString(20, 302, f'Rastreio: {pedido.tracking_code or "pendente"}')
+
+        y = 280
+        pdf.setFont('Helvetica-Bold', 9)
+        pdf.drawString(20, y, 'Itens:')
+        pdf.setFont('Helvetica', 8)
+        for item in pedido.itens.select_related('produto').all():
+            y -= 14
+            pdf.drawString(24, y, f'{item.quantity}x {item.produto.nome}')
+
+        pdf.showPage()
+        pdf.save()
+
+        buffer.seek(0)
+        response = HttpResponse(buffer.read(), content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="etiqueta-pedido-{pedido.id}.pdf"'
+        return response
 
 
 def home_page(request):
@@ -1113,15 +1588,81 @@ def home_page(request):
 
 
 def search_page(request):
-    context = {
-        'filters': ['Categoria', 'Faixa de preco', 'Loja'],
-        'results': [
-            {'name': 'Vestido Floral', 'store': 'Moda Solar', 'price': 'R$ 89,90', 'category': 'Moda'},
-            {'name': 'Kit Velas Artesanais', 'store': 'Casa Aurora', 'price': 'R$ 49,90', 'category': 'Decoracao'},
-            {'name': 'Cesta Gourmet', 'store': 'Sabor da Vila', 'price': 'R$ 129,90', 'category': 'Presentes'},
-        ],
-    }
-    return render(request, 'pages/search.html', context)
+    q = (request.GET.get('q') or '').strip()
+    sort = (request.GET.get('sort') or 'relevance').strip()
+    min_price = (request.GET.get('min_price') or '').strip()
+    max_price = (request.GET.get('max_price') or '').strip()
+    category_values = request.GET.getlist('categories') or (request.GET.get('categories') or '').split(',')
+    store_values = request.GET.getlist('stores') or (request.GET.get('stores') or '').split(',')
+    category_ids = [int(x) for x in category_values if str(x).strip().isdigit()]
+    store_ids = [int(x) for x in store_values if str(x).strip().isdigit()]
+
+    qs = Produto.objects.filter(ativo=True, estoque__gt=0, vendedor__user__is_active=True).select_related('vendedor', 'categoria').prefetch_related('fotos')
+    if q:
+        qs = qs.filter(
+            Q(nome__icontains=q)
+            | Q(descricao__icontains=q)
+            | Q(vendedor__nome_loja__icontains=q)
+            | Q(categoria__nome__icontains=q)
+        )
+    if category_ids:
+        qs = qs.filter(categoria_id__in=category_ids)
+    if store_ids:
+        qs = qs.filter(vendedor_id__in=store_ids)
+    if min_price:
+        try:
+            qs = qs.filter(preco__gte=min_price)
+        except Exception:
+            pass
+    if max_price:
+        try:
+            qs = qs.filter(preco__lte=max_price)
+        except Exception:
+            pass
+
+    if sort == 'price_asc':
+        qs = qs.order_by('preco', '-destaque', '-data_cadastro', 'id')
+    elif sort == 'price_desc':
+        qs = qs.order_by('-preco', '-destaque', '-data_cadastro', 'id')
+    else:
+        qs = qs.order_by('-destaque', '-data_cadastro', 'id')
+
+    facet_qs = Produto.objects.filter(ativo=True, estoque__gt=0, vendedor__user__is_active=True)
+    if q:
+        facet_qs = facet_qs.filter(
+            Q(nome__icontains=q)
+            | Q(descricao__icontains=q)
+            | Q(vendedor__nome_loja__icontains=q)
+            | Q(categoria__nome__icontains=q)
+        )
+
+    categories = (
+        facet_qs.exclude(categoria_id=None)
+        .values('categoria_id', 'categoria__nome')
+        .annotate(total=Count('id'))
+        .order_by('-total', 'categoria__nome')
+    )
+    stores = (
+        facet_qs.values('vendedor_id', 'vendedor__nome_loja')
+        .annotate(total=Count('id'))
+        .order_by('-total', 'vendedor__nome_loja')
+    )
+
+    return render(
+        request,
+        'pages/search.html',
+        {
+            'search_results': qs[:24],
+            'search_categories': categories,
+            'search_stores': stores,
+            'search_query': q,
+            'search_sort': sort,
+            'search_min': min_price,
+            'search_max': max_price,
+            'search_categories_selected': category_ids,
+            'search_stores_selected': store_ids,
+        },
+    )
 
 
 def store_page(request, slug='loja-modelo'):
@@ -1160,6 +1701,8 @@ def public_store_page(request, store_id):
     if not loja:
         return render(request, 'pages/404.html', status=404)
 
+    phone_digits = ''.join(ch for ch in loja.user.telefone if ch.isdigit())
+
     produtos = (
         loja.produtos.filter(ativo=True, estoque__gt=0)
         .select_related('categoria')
@@ -1175,6 +1718,10 @@ def public_store_page(request, store_id):
             'store': loja,
             'products': produtos,
             'categories': categorias,
+            'contact_email': loja.user.email,
+            'contact_phone': loja.user.telefone,
+            'store_url': request.build_absolute_uri(f'/api/front/loja/{loja.id}/'),
+            'whatsapp_link': f'https://wa.me/{phone_digits}' if phone_digits else '',
         },
     )
 
@@ -1197,6 +1744,7 @@ def public_product_page(request, product_id):
             'store': produto.vendedor,
             'photos': list(produto.fotos.all()),
             'variations': list(produto.variacoes.all()),
+            'reviews': list(produto.avaliacoes.select_related('comprador').order_by('-data_avaliacao', '-id')[:8]),
         },
     )
 
@@ -1206,14 +1754,90 @@ def seller_dashboard_page(request):
 
 
 def buyer_dashboard_page(request):
-    context = {
-        'orders': [
-            {'code': '#1032', 'status': 'Aguardando aprovacao', 'total': 'R$ 129,90'},
-            {'code': '#1018', 'status': 'Enviado', 'total': 'R$ 59,90'},
-        ],
-        'next_step': 'Enviar comprovante PIX ou acompanhar status do pedido.',
-    }
-    return render(request, 'pages/buyer_dashboard.html', context)
+    return render(request, 'pages/buyer_dashboard.html')
+
+
+def cart_page(request):
+    return render(request, 'pages/cart.html')
+
+
+def pix_payment_page(request):
+    return render(request, 'pages/pix_payment.html')
+
+
+def seller_orders_page(request):
+    return render(request, 'pages/seller_orders.html')
+
+
+def categories_page(request):
+    categoria_nome = (request.GET.get('categoria') or '').strip()
+    loja_id = (request.GET.get('loja') or '').strip()
+    q = (request.GET.get('q') or '').strip()
+
+    produtos_base = (
+        Produto.objects.filter(ativo=True, estoque__gt=0, vendedor__user__is_active=True)
+        .select_related('vendedor', 'categoria')
+        .prefetch_related('fotos', 'variacoes')
+    )
+
+    category_filters = (
+        produtos_base.exclude(categoria_id=None)
+        .values('categoria__nome')
+        .annotate(total=Count('id'))
+        .order_by('categoria__nome')
+    )
+    store_filters = (
+        produtos_base.values('vendedor_id', 'vendedor__nome_loja')
+        .annotate(total=Count('id'))
+        .order_by('vendedor__nome_loja')
+    )
+
+    if categoria_nome:
+        produtos_base = produtos_base.filter(categoria__nome=categoria_nome)
+    if loja_id.isdigit():
+        produtos_base = produtos_base.filter(vendedor_id=int(loja_id))
+    if q:
+        produtos_base = produtos_base.filter(
+            Q(nome__icontains=q)
+            | Q(descricao__icontains=q)
+            | Q(vendedor__nome_loja__icontains=q)
+            | Q(categoria__nome__icontains=q)
+        )
+
+    nomes_categorias = (
+        produtos_base.exclude(categoria_id=None)
+        .values_list('categoria__nome', flat=True)
+        .distinct()
+        .order_by('categoria__nome')
+    )
+
+    categorias = []
+    for nome_categoria in nomes_categorias:
+        produtos = (
+            produtos_base.filter(categoria__nome=nome_categoria)
+            .select_related('vendedor', 'categoria')
+            .prefetch_related('fotos', 'variacoes')
+            .order_by('-destaque', '-data_cadastro', 'id')[:12]
+        )
+        categorias.append({
+            'nome': nome_categoria,
+            'descricao': produtos[0].categoria.descricao if produtos and produtos[0].categoria else '',
+            'produtos': produtos,
+            'total': produtos_base.filter(categoria__nome=nome_categoria).count(),
+        })
+
+    return render(
+        request,
+        'pages/categories.html',
+        {
+            'categorias': categorias,
+            'category_filters': category_filters,
+            'store_filters': store_filters,
+            'selected_categoria': categoria_nome,
+            'selected_loja': int(loja_id) if loja_id.isdigit() else None,
+            'search_query': q,
+        },
+    )
 
 
 def login_page(request):

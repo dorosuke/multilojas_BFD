@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Categorias | MultiLojas{% endblock %}
+
+{% block content %}
+<section class="hero-card">
+    <span class="eyebrow">Categorias</span>
+    <div class="split">
+        <div>
+            <p class="kicker">Filtrar vitrines</p>
+            <h1 style="margin:0 0 14px; font-size:clamp(2rem, 5vw, 3.2rem); line-height:1.02;">Encontre produtos por categoria, loja ou busca.</h1>
+            <p class="muted" style="max-width:680px;">
+                Use os filtros para navegar pelo catálogo sem precisar abrir loja por loja.
+            </p>
+        </div>
+        <div class="card">
+            <p class="kicker">Atalhos</p>
+            <div class="inline-actions">
+                <a class="button secondary" href="/api/front/busca/">Explorar</a>
+                <a class="button ghost" href="/">Home</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="card">
+        <form method="get" id="category-filter-form" class="form-grid" style="grid-template-columns:minmax(180px,1fr) minmax(160px,220px) minmax(160px,220px) auto; align-items:end;">
+            <label>
+                Buscar produto ou loja
+                <input name="q" value="{{ search_query }}" placeholder="Ex: vestido, vela, moda">
+            </label>
+            <label>
+                Categoria
+                <select name="categoria">
+                    <option value="">Todas</option>
+                    {% for category in category_filters %}
+                        <option value="{{ category.categoria__nome }}" {% if selected_categoria == category.categoria__nome %}selected{% endif %}>
+                            {{ category.categoria__nome }} ({{ category.total }})
+                        </option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                Loja
+                <select name="loja">
+                    <option value="">Todas</option>
+                    {% for store in store_filters %}
+                        <option value="{{ store.vendedor_id }}" {% if selected_loja == store.vendedor_id %}selected{% endif %}>
+                            {{ store.vendedor__nome_loja }} ({{ store.total }})
+                        </option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button type="submit">Aplicar</button>
+        </form>
+
+        <div class="inline-actions" style="margin-top:14px;">
+            {% for category in category_filters %}
+                <a class="button ghost" href="?categoria={{ category.categoria__nome|urlencode }}">{{ category.categoria__nome }}</a>
+            {% endfor %}
+            <a class="button secondary" href="/api/front/categorias/">Limpar</a>
+        </div>
+    </div>
+</section>
+
+<section class="section grid" style="grid-template-columns:1fr;">
+    {% for item in categorias %}
+    <article class="card" data-category-block data-category-name="{{ item.nome|lower }}">
+        <div class="inline-actions" style="justify-content:space-between; align-items:flex-start;">
+            <div>
+                <p class="kicker">{{ item.total }} produto(s)</p>
+                <h2 class="section-title">{{ item.nome }}</h2>
+                <p class="muted">{{ item.descricao|default:"Produtos disponíveis nas vitrines cadastradas." }}</p>
+            </div>
+            <a class="button ghost" href="/api/front/busca/?categories={{ item.produtos.0.categoria_id }}">
+                Ver na busca
+            </a>
+        </div>
+
+        {% if item.produtos %}
+            <div class="carousel" style="margin-top:12px;">
+                {% for product in item.produtos %}
+                <a class="carousel-item" href="/api/front/produto/{{ product.id }}/" data-category-product data-store-id="{{ product.vendedor_id }}">
+                    <div class="thumb">
+                        {% with photo=product.fotos.all|first %}
+                            {% if photo %}
+                                <img src="{{ photo.imagem.url }}" alt="{{ product.nome }}">
+                            {% else %}
+                                <span class="muted">Sem foto</span>
+                            {% endif %}
+                        {% endwith %}
+                    </div>
+                    <div class="meta">
+                        <strong class="truncate">{{ product.nome }}</strong>
+                        <div class="muted small">{{ product.vendedor.nome_loja }}</div>
+                        <div class="meta-row">
+                            <span class="price">R$ {{ product.preco }}</span>
+                            <span class="badge {% if product.estoque < 5 %}warn{% else %}ok{% endif %}">Estoque: {{ product.estoque }}</span>
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="muted">Nenhum produto encontrado nessa categoria.</div>
+        {% endif %}
+    </article>
+    {% empty %}
+    <div class="card">
+        <strong>Nenhuma categoria disponível para esses filtros.</strong>
+        <p class="muted">Tente limpar os filtros ou cadastrar produtos com categoria.</p>
+        <a class="button secondary" href="/api/front/categorias/">Limpar filtros</a>
+    </div>
+    {% endfor %}
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('category-filter-form');
+        if (!form) return;
+
+        form.querySelectorAll('select').forEach((select) => {
+            select.addEventListener('change', () => form.requestSubmit());
+        });
+    });
+</script>
+{% endblock %}

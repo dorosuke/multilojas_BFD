@@ -17,6 +17,18 @@
             <p class="muted" style="margin:10px 0 0;">
                 {{ store.descricao_loja }}
             </p>
+            <div class="status info" style="margin-top:14px;">
+                <div><strong>Contato:</strong> {{ contact_email }}{% if contact_phone %} · {{ contact_phone }}{% endif %}</div>
+                <div><strong>Endereço:</strong> {{ store.endereco_completo }}</div>
+            </div>
+            <div class="inline-actions" style="margin-top:14px; flex-wrap:wrap;">
+                {% if whatsapp_link %}
+                    <a class="button" href="{{ whatsapp_link }}" target="_blank" rel="noreferrer">WhatsApp</a>
+                {% endif %}
+                <a class="button secondary" href="mailto:{{ contact_email }}">E-mail</a>
+                <a class="button ghost" href="{{ store_url }}" target="_blank" rel="noreferrer">Abrir link</a>
+                <a class="button ghost" href="https://wa.me/?text={{ store.nome_loja|urlencode }}%20{{ store_url|urlencode }}" target="_blank" rel="noreferrer">Compartilhar</a>
+            </div>
         </div>
     </div>
 </div>

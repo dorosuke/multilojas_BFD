@@ -1,250 +1,175 @@
-# Projeto Marketplace
+# Projeto Marketplace MultiLojas
+
+Marketplace acadêmico com vitrine pública, painel de vendedor, carrinho por loja, frete por CEP, pagamento PIX com comprovante e aprovação do pedido pelo vendedor.
+
+## Visão Geral
+
+O sistema organiza várias lojas em uma única plataforma.
+O comprador navega sem precisar fazer login para ver vitrines, categorias e produtos.
+O vendedor gerencia loja, produtos, pedidos, comprovantes e rastreio.
 
 ## Tecnologias
 
 - Python 3.12
-- Django 6
+- Django
 - Django REST Framework
-- PostgreSQL
+- SQLite no desenvolvimento local
+- PostgreSQL com configuração via `.env`
 - django-cors-headers
 - python-decouple
 - dj-database-url
+- Pillow
+- ReportLab
 
 ## Estrutura
 
 ```text
 projeto_marketPlace/
-├── .env.example
-├── CONTRIBUTING.md
 ├── README.md
-├── requirements.txt
+├── docs/
+│   ├── ACOMPANHAMENTO_DAS_SPRINTS.md
+│   └── DECISOES_TECNICAS.md
 └── projeto_marketplace1/
     ├── core/
     ├── manage.py
-    ├── projeto_marketplace1/
+    ├── media/
     └── template/
 ```
 
-## Como rodar
+## Como executar
 
-1. Ative o ambiente virtual.
-2. Instale as dependencias:
+> Se `python` não funcionar, use `.venv/bin/python` ou ative o ambiente virtual.
+
+1. Crie e ative o ambiente virtual:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+2. Instale as dependências:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Crie o arquivo `.env` com base no `.env.example`.
-4. Configure o PostgreSQL no `.env`.
-5. Rode as migrations:
+3. Configure o ambiente:
+
+```bash
+cp .env.example .env
+```
+
+4. Rode as migrations:
 
 ```bash
 python projeto_marketplace1/manage.py migrate
 ```
 
-6. Inicie o servidor:
+5. Carregue os dados de demonstração:
+
+```bash
+python projeto_marketplace1/manage.py seed_demo_data
+```
+
+6. Inicie o sistema:
 
 ```bash
 python projeto_marketplace1/manage.py runserver
 ```
 
-## Frontend (React + Vite)
+## Acessos de teste
 
-Existe um frontend React (Vite) em `frontend/` para consumir as rotas do backend.
+- Admin: `admin@multilojas.local` / `Admin@12345`
+- Comprador demo: `comprador@demo.com` / `Comprador@12345`
+- Vendedor demo: `modasolar@demo.com` / `Moda@12345`
+- Vendedor demo: `casaaurora@demo.com` / `Casa@12345`
+- Vendedor demo: `sabordavila@demo.com` / `Sabor@12345`
+- Vendedor demo: `techprime@demo.com` / `Tech@12345`
+- Vendedor demo: `atelierrosa@demo.com` / `Atelie@12345`
 
-Requisitos:
+## Endereços de teste
 
-- Node.js 18+ e npm
+Use qualquer um destes no carrinho:
 
-Como rodar:
+- CEP `01001000` e endereço `Praça da Sé, 100, Sé, São Paulo - SP`
+- CEP `01310000` e endereço `Avenida Paulista, 1000, Bela Vista, São Paulo - SP`
 
-```bash
-cd frontend
-cp .env.example .env
-npm install
-npm run dev
-```
+O carrinho já tem botões para preencher esses endereços automaticamente. Ao finalizar, o sistema cria o pedido, baixa o estoque vendido e redireciona para a página PIX.
 
-Configuração:
+## Funcionalidades principais
 
-- `VITE_API_BASE_URL` (ex: `http://localhost:8000/api`)
+- Home com carrossel de lojas em destaque e produtos
+- Busca com filtros por termo, loja, categoria e faixa de preço
+- Páginas públicas de loja, produto e categorias
+- Carrinho salvo no navegador, agrupado por loja
+- Frete calculado por CEP usando BrasilAPI/ViaCEP como apoio, sem Correios
+- Finalização de pedido com endereço e resumo
+- Página PIX com QR Code e upload de comprovante
+- Aprovação/rejeição de pedido pelo vendedor
+- Código de rastreio e etiqueta PDF
+- Avaliação de produtos após entrega
+- Painel de vendedor, perfil, recuperação de senha e painel admin
 
-Rotas do frontend (React):
+## Rotas úteis
 
-- `/` vitrine (lojas + produtos por loja)
-- `/loja/:id` página pública da loja
-- `/produto/:id` página pública do produto
-- `/busca` busca global (Sprint 6)
-- `/carrinho` carrinho + checkout por loja (Sprint 8)
-
-Observação sobre autenticação no React:
-
-- o frontend React reaproveita o JWT salvo no navegador pelo frontend em templates (chave `marketplace.access`)
-- para testar o fluxo de pedido (Sprint 8), faça login pelo template em `/api/front/login/` e depois use o React
-## Variaveis de ambiente
-
-Exemplo em `.env.example`:
-
-```env
-SECRET_KEY=troque-esta-chave
-DEBUG=True
-ALLOWED_HOSTS=localhost,127.0.0.1
-TIME_ZONE=America/Sao_Paulo
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/projeto_marketplace
-DB_CONN_MAX_AGE=60
-DB_SSL_REQUIRE=False
-CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
-```
-
-## Endpoint inicial
-
-Foi criado um endpoint de health-check:
-
-```text
-GET /api/health/
-```
-
-Resposta esperada:
-
-```json
-{
-  "success": true,
-  "data": {
-    "service": "backend",
-    "status": "ok"
-  },
-  "message": "API base pronta para o projeto."
-}
-```
-
-Tambem existe uma rota raiz da API:
-
-```text
-GET /api/
-```
-
-## Sobre o sistema
-
-O projeto e uma base de marketplace para pequenos empreendedores e compradores.
-Hoje o sistema ja possui a estrutura inicial do backend em Django REST Framework e um frontend em templates Django para os fluxos de autenticacao e perfil.
-
-O sistema trabalha com dois tipos de usuario:
-
-- vendedor
-- comprador
-
-## O que ja esta funcionando
-
-Backend:
-
-- configuracao inicial do projeto com Django + DRF
-- modelagem de `User`, `Vendedor` e `Comprador`
-- modelagem de `Produto` e `FotoProduto`
-- cadastro de vendedor
-- cadastro de comprador
-- login com JWT
-- consulta de perfil autenticado
-- atualizacao de perfil autenticado
-- recuperacao de senha com geracao de link
-- consulta e atualizacao da loja do vendedor
-- CRUD de produtos do vendedor
-- upload de ate 5 fotos por produto
-- desativacao de produto
-- resposta padronizada em JSON
-
-Frontend:
-
-- pagina inicial
-- tela de cadastro com alternancia entre vendedor e comprador
-- tela de login integrada com a API
-- tela de recuperacao de senha
-- tela de perfil protegida e editavel
-- painel do vendedor
-- tela "Minha Loja"
-- tela "Meus Produtos"
-- persistencia simples da sessao no navegador com JWT
-
-## Como testar o sistema atual
-
-1. Acesse `/api/front/cadastro/` e crie uma conta de vendedor ou comprador.
-2. Depois do cadastro, o usuario sera autenticado e redirecionado para `/api/front/perfil/`.
-3. Acesse `/api/front/login/` para entrar com uma conta existente.
-4. Acesse `/api/front/perfil/` para consultar e editar os dados do usuario autenticado.
-5. Acesse `/api/front/recuperar-senha/` para solicitar o link de redefinicao.
-6. Use o `reset_link` retornado pela API para abrir a tela de nova senha no navegador.
-
-## Administracao do sistema
-
-O Django Admin esta habilitado para gerenciamento interno da aplicacao.
-
-URL de acesso:
-
-```text
-/admin/
-```
-
-Credenciais administrativas atuais do ambiente local:
-
-- login: `admin@multilojas.local`
-- senha: `Admin@12345`
-
-## Observacoes importantes
-
-- o projeto aceita PostgreSQL como banco principal e SQLite como fallback local
-- o banco SQLite local foi recriado para alinhar corretamente as migrations do app `core`
-- o formulario de cadastro agora exibe mensagens de erro por campo, facilitando a identificacao de problemas de validacao
-- o fluxo de recuperacao de senha direciona o usuario para a interface web antes da confirmacao da nova senha
-
-## Frontend em templates
-
-Rotas visuais disponiveis:
+### Frontend em templates
 
 - `/`
 - `/api/front/busca/`
+- `/api/front/categorias/`
+- `/api/front/carrinho/`
+- `/api/front/pagamento-pix/`
+- `/api/front/pedidos/`
 - `/api/front/login/`
 - `/api/front/cadastro/`
 - `/api/front/recuperar-senha/`
 - `/api/front/perfil/`
 - `/api/front/vendedor/`
+- `/api/front/vendedor/pedidos/`
 - `/api/front/minha-loja/`
 - `/api/front/meus-produtos/`
-- `/api/front/loja/moda-solar/`
-- `/api/front/produto/vestido-floral/`
-- `/api/front/comprador/`
 
-Rotas da autenticacao ja integradas ao front:
+### APIs principais
 
-- `/api/auth/register/vendor/`
-- `/api/auth/register/buyer/`
-- `/api/auth/login/`
-- `/api/auth/profile/`
-- `/api/auth/password-reset/request/`
-- `/api/auth/password-reset/confirm/`
-- `/api/seller/store/`
-- `/api/seller/categories/`
-- `/api/seller/categories/<id>/`
-- `/api/seller/products/`
-- `/api/seller/products/<id>/`
-- `/api/seller/products/<id>/photos/`
-- `/api/seller/products/<id>/variations/`
-- `/api/seller/product-variations/<id>/`
+- `GET /api/health/`
+- `POST /api/auth/register/vendor/`
+- `POST /api/auth/register/buyer/`
+- `POST /api/auth/login/`
+- `GET/PUT /api/auth/profile/`
+- `GET /api/lojas/`
+- `GET /api/lojas/<id>/`
+- `GET /api/lojas/<id>/produtos/`
+- `GET /api/produtos/<id>/`
+- `GET/POST /api/produtos/<id>/avaliacoes/`
+- `GET /api/busca/`
+- `GET /api/busca/filtros/`
+- `POST /api/shipping/quote/`
+- `POST /api/orders/`
+- `POST /api/orders/<id>/payment-proof/`
+- `GET /api/buyer/orders/`
+- `GET /api/vendedor/pedidos/`
+- `PUT /api/vendedor/pedidos/<id>/aprovar/`
+- `PUT /api/vendedor/pedidos/<id>/rejeitar/`
+- `PUT /api/vendedor/pedidos/<id>/enviar/`
+- `PUT /api/vendedor/pedidos/<id>/entregar/`
+- `GET /api/vendedor/pedidos/<id>/label/`
 
-Rotas publicas:
+## Observações para apresentação
 
-- `/api/lojas/`
-- `/api/lojas/<id>/`
-- `/api/lojas/<id>/produtos/?category=<id>&sort=price_asc` (Sprint 7)
-- `/api/vitrine/`
-- `/api/produtos/<id>/`
-- `/api/busca/?q=termo`
-- `/api/busca/filtros/?q=termo`
+- O projeto já sobe com dados demo para a home não ficar vazia.
+- O frete usa CEP e fallback por região/estado.
+- O fluxo PIX pede o comprovante e muda o status do pedido para aprovação do vendedor.
+- O carrinho é por loja, para manter a lógica do marketplace organizada.
 
-Pedidos (Sprint 8):
+## Admin
 
-- `POST /api/orders/` cria um pedido (comprador autenticado)
-  - frete atual é `correios_stub` (regra simples) e pode ser substituído por integração real depois
+Painel Django:
 
-## Documentos de apoio
+```text
+/admin/
+```
 
-- `CONTRIBUTING.md`
+## Documentação do projeto
+
+- `docs/ACOMPANHAMENTO_DAS_SPRINTS.md`
 - `docs/DECISOES_TECNICAS.md`

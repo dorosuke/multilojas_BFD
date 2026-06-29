@@ -45,6 +45,16 @@
                 </label>
             </div>
 
+            <div class="form-grid two-col">
+                <label>
+                    CEP da loja
+                    <input type="text" name="cep" placeholder="00000000" required>
+                </label>
+                <div class="status info">
+                    Esse CEP será usado para cálculo de frete e vitrine.
+                </div>
+            </div>
+
             <label>
                 Endereco completo
                 <textarea name="endereco_completo" required></textarea>
@@ -110,6 +120,7 @@
             form.telefone.value = data.user.telefone || '';
             form.logo_url.value = data.vendedor.logo_url || '';
             form.cnpj.value = data.vendedor.cnpj || '';
+            form.cep.value = data.vendedor.cep || '';
             form.endereco_completo.value = data.vendedor.endereco_completo || '';
             form.descricao_loja.value = data.vendedor.descricao_loja || '';
             renderSummary(data);
@@ -143,6 +154,7 @@
                 telefone: form.telefone.value,
                 logo_url: form.logo_url.value,
                 cnpj: form.cnpj.value,
+                cep: form.cep.value,
                 endereco_completo: form.endereco_completo.value,
                 descricao_loja: form.descricao_loja.value,
             };

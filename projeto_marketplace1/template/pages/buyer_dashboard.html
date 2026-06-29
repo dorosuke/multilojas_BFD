@@ -1,23 +1,92 @@
 {% extends "base.html" %}
 
-{% block title %}Area do Comprador{% endblock %}
+{% block title %}Minhas Compras | MultiLojas{% endblock %}
 
 {% block content %}
-<div class="box">
-    <h1>Area do comprador</h1>
-    <p class="muted">{{ next_step }}</p>
-</div>
+<section class="hero-card">
+    <span class="eyebrow">Comprador</span>
+    <h1 style="margin:0 0 12px;">Minhas compras</h1>
+    <p class="muted" style="max-width:760px;">
+        Aqui o comprador acompanha seus pedidos, envia comprovante PIX e visualiza o andamento de cada compra.
+    </p>
+</section>
 
-<div class="box">
-    <h2>Pedidos</h2>
-    <div class="grid">
-        {% for order in orders %}
-        <div class="item">
-            <strong>{{ order.code }}</strong>
-            <p>{{ order.status }}</p>
-            <p class="muted">{{ order.total }}</p>
-        </div>
-        {% endfor %}
-    </div>
-</div>
+<section class="section">
+    <div id="buyer-orders-feedback" class="feedback hidden"></div>
+    <div id="buyer-orders-summary" class="stats" style="margin-bottom:18px;"></div>
+    <div id="buyer-orders-root" class="grid"></div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const App = window.MarketplaceApp;
+        if (!App.requireAuth()) {
+            return;
+        }
+
+        const feedback = document.getElementById('buyer-orders-feedback');
+        const summaryRoot = document.getElementById('buyer-orders-summary');
+        const root = document.getElementById('buyer-orders-root');
+
+        const currency = (value) => `R$ ${Number(value || 0).toFixed(2).replace('.', ',')}`;
+
+        const render = (orders) => {
+            const totals = {
+                aguardando: orders.filter((order) => order.status === 'aguardando_aprovacao').length,
+                pagos: orders.filter((order) => order.status === 'pago').length,
+                enviados: orders.filter((order) => order.status === 'enviado').length,
+                entregues: orders.filter((order) => order.status === 'entregue').length,
+            };
+
+            summaryRoot.innerHTML = `
+                <div class="stat"><span class="muted">Aguardando aprovação</span><strong>${totals.aguardando}</strong></div>
+                <div class="stat"><span class="muted">Pagos</span><strong>${totals.pagos}</strong></div>
+                <div class="stat"><span class="muted">Enviados</span><strong>${totals.enviados}</strong></div>
+                <div class="stat"><span class="muted">Entregues</span><strong>${totals.entregues}</strong></div>
+            `;
+
+            if (!orders.length) {
+                root.innerHTML = `
+                    <article class="card">
+                        <strong>Nenhuma compra encontrada.</strong>
+                        <p class="muted">Faça um pedido no carrinho para começar.</p>
+                        <a class="button" href="/api/front/carrinho/">Abrir carrinho</a>
+                    </article>
+                `;
+                return;
+            }
+
+            root.innerHTML = orders.map((order) => `
+                <article class="card">
+                    <p class="kicker">Pedido #${order.id}</p>
+                    <h3 style="margin-top:0;">${order.loja?.nome_loja || 'Loja'} · ${order.status_label || order.status}</h3>
+                    <p class="muted">Total: ${currency(order.total)}</p>
+                    <p class="muted">Frete: ${currency(order.shipping_cost)}</p>
+                    <p class="muted">Endereço: ${order.shipping_address || 'não informado'}</p>
+                    <div class="section">
+                        ${(order.itens || []).map((item) => `
+                            <div class="summary-line">
+                                <span>${item.quantity}x ${item.produto?.nome || 'Produto'}</span>
+                                <strong>${currency(item.total_price)}</strong>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="inline-actions" style="margin-top:12px; flex-wrap:wrap;">
+                        <a class="button" href="/api/front/pagamento-pix/?pedido_id=${order.id}">Ver PIX / Comprovante</a>
+                        ${order.tracking_code ? `<span class="chip">Rastreio: ${order.tracking_code}</span>` : ''}
+                    </div>
+                </article>
+            `).join('');
+        };
+
+        try {
+            const response = await App.apiFetch('/api/buyer/orders/');
+            render(response.data.orders || []);
+        } catch (error) {
+            App.setFeedback(feedback, error.message || 'Não foi possível carregar suas compras.', 'error');
+        }
+    });
+</script>
 {% endblock %}

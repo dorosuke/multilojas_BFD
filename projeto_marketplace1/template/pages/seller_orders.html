@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}Pedidos da Loja | MultiLojas{% endblock %}
+
+{% block content %}
+<section class="hero-card">
+    <span class="eyebrow">Pedidos</span>
+    <h1 style="margin:0 0 12px;">Acompanhe e aprove os comprovantes PIX.</h1>
+    <p class="muted" style="max-width:720px;">
+        Aqui o vendedor visualiza pedidos pendentes, aprova ou rejeita pagamentos e informa o rastreio.
+    </p>
+</section>
+
+<section class="section">
+    <div class="inline-actions">
+        <button type="button" class="secondary" data-filter="">Todos</button>
+        <button type="button" class="secondary" data-filter="aguardando_aprovacao">Aguardando aprovação</button>
+        <button type="button" class="secondary" data-filter="pago">Pagos</button>
+        <button type="button" class="secondary" data-filter="enviado">Enviados</button>
+        <button type="button" class="secondary" data-filter="entregue">Entregues</button>
+    </div>
+</section>
+
+<section class="section">
+    <div id="seller-orders-feedback" class="feedback hidden"></div>
+    <div id="seller-orders-root" class="grid"></div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  (function () {
+    const App = window.MarketplaceApp;
+    const root = document.getElementById('seller-orders-root');
+    const feedback = document.getElementById('seller-orders-feedback');
+    let currentFilter = 'aguardando_aprovacao';
+    let orders = [];
+
+    const money = (value) => `R$ ${Number(value || 0).toFixed(2)}`;
+
+    const loadOrders = async () => {
+      const response = currentFilter === 'aguardando_aprovacao'
+        ? await App.apiFetch('/api/vendedor/pedidos/pendentes/')
+        : await App.apiFetch(`/api/vendedor/pedidos/?status=${encodeURIComponent(currentFilter)}`);
+      orders = response.data.orders || [];
+      render();
+    };
+
+    const render = () => {
+      if (!orders.length) {
+        root.innerHTML = `
+          <div class="card">
+            <strong>Nenhum pedido neste filtro.</strong>
+          </div>
+        `;
+        return;
+      }
+
+      root.innerHTML = orders.map((order) => `
+        <article class="card" data-order-id="${order.id}">
+          <div class="inline-actions" style="justify-content:space-between; align-items:flex-start;">
+            <div>
+              <p class="kicker">Pedido #${order.id}</p>
+              <h3 style="margin:0;">${order.comprador?.nome || 'Comprador'}</h3>
+              <p class="muted">${order.status_label || order.status} · ${money(order.total)}</p>
+            </div>
+            <a class="button ghost" href="/api/vendedor/pedidos/${order.id}/label/" target="_blank" rel="noreferrer">Etiqueta PDF</a>
+          </div>
+
+          <div class="status info" style="margin-top:12px;">
+            <div><strong>PIX:</strong> ${order.loja?.chave_pix || 'não informado'}</div>
+            ${order.rejection_reason ? `<div><strong>Motivo da rejeição:</strong> ${order.rejection_reason}</div>` : ''}
+            ${order.tracking_code ? `<div><strong>Rastreio:</strong> ${order.tracking_code}</div>` : ''}
+          </div>
+
+          <div class="section" style="margin-top:12px;">
+            ${(order.itens || []).map((item) => `
+              <div class="summary-line">
+                <span>${item.quantity}x ${item.produto?.nome || 'Produto'}</span>
+                <strong>${money(item.total_price)}</strong>
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="inline-actions" style="margin-top:12px; flex-wrap:wrap;">
+            ${(order.comprovante_url || order.comprovante_pagamento_url) ? `<button type="button" class="button ghost" data-preview="${order.id}">Ver comprovante</button>` : ''}
+            ${order.status === 'aguardando_aprovacao' ? `
+              <button type="button" class="button" data-approve="${order.id}">Aprovar</button>
+              <input type="text" placeholder="Motivo da rejeição" data-reject-input="${order.id}" style="min-width:240px; flex:1;">
+              <button type="button" class="button secondary" data-reject="${order.id}">Rejeitar</button>
+            ` : ''}
+            ${order.status === 'pago' ? `
+              <input type="text" placeholder="Código de rastreio" data-ship-input="${order.id}" style="min-width:240px; flex:1;">
+              <button type="button" class="button" data-ship="${order.id}">Marcar como enviado</button>
+            ` : ''}
+            ${order.status === 'enviado' ? `
+              <button type="button" class="button secondary" data-deliver="${order.id}">Marcar como entregue</button>
+            ` : ''}
+          </div>
+        </article>
+      `).join('');
+    };
+
+    document.querySelectorAll('[data-filter]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        currentFilter = button.dataset.filter;
+        try {
+          await loadOrders();
+        } catch (error) {
+          App.setFeedback(feedback, error.message || 'Não foi possível carregar os pedidos.', 'error');
+        }
+      });
+    });
+
+    root.addEventListener('click', async (event) => {
+      const approve = event.target.closest('[data-approve]');
+      const reject = event.target.closest('[data-reject]');
+      const ship = event.target.closest('[data-ship]');
+      const deliver = event.target.closest('[data-deliver]');
+      const preview = event.target.closest('[data-preview]');
+
+      try {
+        if (approve) {
+          await App.apiFetch(`/api/vendedor/pedidos/${approve.dataset.approve}/aprovar/`, { method: 'PUT', body: '{}' });
+          await loadOrders();
+        }
+        if (reject) {
+          const orderId = reject.dataset.reject;
+          const input = root.querySelector(`[data-reject-input="${orderId}"]`);
+          await App.apiFetch(`/api/vendedor/pedidos/${orderId}/rejeitar/`, {
+            method: 'PUT',
+            body: JSON.stringify({ motivo: input?.value || 'Pagamento não confirmado' }),
+          });
+          await loadOrders();
+        }
+        if (ship) {
+          const orderId = ship.dataset.ship;
+          const input = root.querySelector(`[data-ship-input="${orderId}"]`);
+          await App.apiFetch(`/api/vendedor/pedidos/${orderId}/enviar/`, {
+            method: 'PUT',
+            body: JSON.stringify({ tracking_code: input?.value || 'sem rastreio' }),
+          });
+          await loadOrders();
+        }
+        if (deliver) {
+          await App.apiFetch(`/api/vendedor/pedidos/${deliver.dataset.deliver}/entregar/`, { method: 'PUT', body: '{}' });
+          await loadOrders();
+        }
+        if (preview) {
+          const order = orders.find((item) => Number(item.id) === Number(preview.dataset.preview));
+          if (order?.comprovante_url || order?.comprovante_pagamento_url) {
+            window.open(order.comprovante_url || order.comprovante_pagamento_url, '_blank', 'noreferrer');
+          }
+        }
+      } catch (error) {
+        App.setFeedback(feedback, error.message || 'Não foi possível concluir a ação.', 'error');
+      }
+    });
+
+    loadOrders().catch((error) => App.setFeedback(feedback, error.message || 'Não foi possível carregar os pedidos.', 'error'));
+  })();
+</script>
+{% endblock %}

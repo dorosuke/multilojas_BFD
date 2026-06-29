@@ -75,6 +75,7 @@ class Vendedor(models.Model):
     descricao_loja = models.TextField(blank=True)
     logo_url = models.URLField(blank=True)
     endereco_completo = models.TextField()
+    cep = models.CharField(max_length=9, blank=True)
     cnpj = models.CharField(max_length=18, blank=True)
     chave_pix = models.CharField(max_length=255)
 
@@ -111,6 +112,7 @@ class Comprador(models.Model):
     )
     cpf = models.CharField(max_length=14)
     endereco_completo = models.TextField()
+    cep = models.CharField(max_length=9, blank=True)
 
     def __str__(self):
         return self.user.nome
@@ -207,6 +209,12 @@ class FotoProduto(models.Model):
 class Pedido(models.Model):
     class Status(models.TextChoices):
         CRIADO = 'criado', 'Criado'
+        AGUARDANDO_PAGAMENTO = 'aguardando_pagamento', 'Aguardando pagamento'
+        AGUARDANDO_APROVACAO = 'aguardando_aprovacao', 'Aguardando aprovação'
+        PAGO = 'pago', 'Pago'
+        REJEITADO = 'rejeitado', 'Rejeitado'
+        ENVIADO = 'enviado', 'Enviado'
+        ENTREGUE = 'entregue', 'Entregue'
         CANCELADO = 'cancelado', 'Cancelado'
 
     comprador = models.ForeignKey(
@@ -224,6 +232,13 @@ class Pedido(models.Model):
     shipping_address = models.TextField()
     shipping_provider = models.CharField(max_length=50, default='correios_stub')
     shipping_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    tracking_code = models.CharField(max_length=100, blank=True)
+    rejection_reason = models.TextField(blank=True)
+    comprovante_pagamento = models.FileField(upload_to='pedidos/comprovantes/', null=True, blank=True)
+    comprovante_url = models.CharField(max_length=500, blank=True)
+    payment_submitted_at = models.DateTimeField(null=True, blank=True)
+    data_aprovacao = models.DateTimeField(null=True, blank=True)
+    shipped_at = models.DateTimeField(null=True, blank=True)
 
     subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -258,3 +273,31 @@ class PedidoItem(models.Model):
 
     def __str__(self):
         return f'Item #{self.id} x{self.quantity}'
+
+
+class AvaliacaoProduto(models.Model):
+    comprador = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='avaliacoes_produtos',
+    )
+    produto = models.ForeignKey(
+        Produto,
+        on_delete=models.CASCADE,
+        related_name='avaliacoes',
+    )
+    pedido = models.ForeignKey(
+        Pedido,
+        on_delete=models.CASCADE,
+        related_name='avaliacoes',
+    )
+    nota = models.PositiveSmallIntegerField()
+    comentario = models.TextField(blank=True)
+    data_avaliacao = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-data_avaliacao', '-id']
+        unique_together = [('comprador', 'produto', 'pedido')]
+
+    def __str__(self):
+        return f'Avaliação {self.nota} de {self.produto.nome}'

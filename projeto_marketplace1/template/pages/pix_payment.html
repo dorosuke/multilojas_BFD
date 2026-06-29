@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Pagamento PIX | MultiLojas{% endblock %}
+
+{% block content %}
+<section class="hero-card">
+    <span class="eyebrow">PIX</span>
+    <h1 style="margin:0 0 12px;">Pague o valor exato e envie o comprovante.</h1>
+    <p class="muted" style="max-width:720px;">
+        A página mostra a chave PIX do vendedor, um QR Code simples e o upload do comprovante para o vendedor aprovar.
+    </p>
+</section>
+
+<section class="section">
+    <div id="pix-feedback" class="feedback hidden"></div>
+    <div id="pix-root" class="grid"></div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  (function () {
+    const App = window.MarketplaceApp;
+    const root = document.getElementById('pix-root');
+    const feedback = document.getElementById('pix-feedback');
+    const params = new URLSearchParams(window.location.search);
+    const orderId = Number(params.get('pedido_id') || params.get('order_id') || 0);
+
+    const money = (value) => `R$ ${Number(value || 0).toFixed(2)}`;
+
+    const loadOrder = async () => {
+      const response = await App.apiFetch('/api/buyer/orders/');
+      const orders = response.data.orders || [];
+      return orders.find((item) => Number(item.id) === orderId) || null;
+    };
+
+    const uploadProof = async (orderIdValue, file) => {
+      const formData = new FormData();
+      formData.append('comprovante', file);
+      await App.apiFetch(`/api/orders/${orderIdValue}/payment-proof/`, {
+        method: 'POST',
+        body: formData,
+      });
+      App.showToast('Comprovante enviado com sucesso.', 'success');
+      window.location.href = '/api/front/pedidos/';
+    };
+
+    const render = (order) => {
+      if (!order) {
+        root.innerHTML = `
+          <div class="card">
+            <strong>Pedido não encontrado.</strong>
+            <p class="muted">Abra um pedido recente do comprador para exibir os dados do PIX.</p>
+            <a class="button" href="/api/front/pedidos/">Minhas compras</a>
+          </div>
+        `;
+        return;
+      }
+
+      root.innerHTML = `
+        <div class="card">
+          <p class="kicker">Pedido #${order.id}</p>
+          <h2 class="section-title">${order.loja?.nome_loja || 'Loja'}</h2>
+          <div class="status info" style="margin-top:12px; word-break:break-all;">
+            <div><strong>Chave PIX:</strong> ${order.loja?.chave_pix || 'não informada'}</div>
+            ${order.loja?.chave_pix ? `<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(order.loja.chave_pix)}" alt="QR Code PIX" style="margin-top:14px; width:180px; height:180px; border-radius:16px; border:1px solid rgba(0,0,0,.08); background:#fff; padding:8px;">` : ''}
+          </div>
+          <div class="status info" style="margin-top:14px;">
+            <div><strong>Endereço:</strong> ${order.shipping_address || 'não informado'}</div>
+            <div><strong>Subtotal:</strong> ${money(order.subtotal)}</div>
+            <div><strong>Frete:</strong> ${money(order.shipping_value)}</div>
+            <div><strong>Total:</strong> ${money(order.total)}</div>
+            <div><strong>Status:</strong> ${order.status_label || order.status}</div>
+          </div>
+          <div class="inline-actions" style="margin-top:16px;">
+            <label class="button">
+              Enviar comprovante
+              <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" class="hidden" data-proof-input>
+            </label>
+          <a class="button ghost" href="/api/front/pedidos/">Voltar às compras</a>
+          </div>
+          <p class="muted small" style="margin-top:10px;">PNG, JPG, WEBP ou PDF de até 5MB.</p>
+        </div>
+      `;
+
+      const input = root.querySelector('[data-proof-input]');
+      input.addEventListener('change', (event) => {
+        const file = event.target.files?.[0];
+        if (file) {
+          uploadProof(order.id, file).catch((error) => App.setFeedback(feedback, error.message || 'Não foi possível enviar o comprovante.', 'error'));
+        }
+      });
+    };
+
+    loadOrder()
+      .then(render)
+      .catch((error) => App.setFeedback(feedback, error.message || 'Não foi possível carregar o pedido.', 'error'));
+  })();
+</script>
+{% endblock %}
