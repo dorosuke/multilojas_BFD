@@ -14,6 +14,7 @@
 <section class="section">
     <div class="inline-actions">
         <button type="button" class="secondary" data-filter="">Todos</button>
+        <button type="button" class="secondary" data-filter="aguardando_pagamento">Aguardando pagamento</button>
         <button type="button" class="secondary" data-filter="aguardando_aprovacao">Aguardando aprovação</button>
         <button type="button" class="secondary" data-filter="pago">Pagos</button>
         <button type="button" class="secondary" data-filter="enviado">Enviados</button>
@@ -33,7 +34,7 @@
     const App = window.MarketplaceApp;
     const root = document.getElementById('seller-orders-root');
     const feedback = document.getElementById('seller-orders-feedback');
-    let currentFilter = 'aguardando_aprovacao';
+    let currentFilter = '';
     let orders = [];
 
     const money = (value) => `R$ ${Number(value || 0).toFixed(2)}`;
@@ -64,7 +65,6 @@
               <h3 style="margin:0;">${order.comprador?.nome || 'Comprador'}</h3>
               <p class="muted">${order.status_label || order.status} · ${money(order.total)}</p>
             </div>
-            <a class="button ghost" href="/api/vendedor/pedidos/${order.id}/label/" target="_blank" rel="noreferrer">Etiqueta PDF</a>
           </div>
 
           <div class="status info" style="margin-top:12px;">
@@ -83,7 +83,7 @@
           </div>
 
           <div class="inline-actions" style="margin-top:12px; flex-wrap:wrap;">
-            ${(order.comprovante_url || order.comprovante_pagamento_url) ? `<button type="button" class="button ghost" data-preview="${order.id}">Ver comprovante</button>` : ''}
+            ${(order.comprovante_url || order.comprovante_pagamento_url) ? `<button type="button" class="button ghost" data-preview="${order.id}">Baixar comprovante</button>` : ''}
             ${order.status === 'aguardando_aprovacao' ? `
               <button type="button" class="button" data-approve="${order.id}">Aprovar</button>
               <input type="text" placeholder="Motivo da rejeição" data-reject-input="${order.id}" style="min-width:240px; flex:1;">

@@ -5,7 +5,7 @@
 {% block content %}
 <section class="hero-card">
     <span class="eyebrow">PIX</span>
-    <h1 style="margin:0 0 12px;">Pague o valor exato e envie o comprovante.</h1>
+    <h1 style="margin:0 0 12px;">Pague o valor exato e envie o comprovante(opcional).</h1>
     <p class="muted" style="max-width:720px;">
         A página mostra a chave PIX do vendedor, um QR Code simples e o upload do comprovante para o vendedor aprovar.
     </p>
@@ -57,6 +57,9 @@
         return;
       }
 
+      const proofUrl = order.comprovante_url || order.comprovante_pagamento_url || '';
+      const canUploadProof = ['criado', 'aguardando_pagamento', 'rejeitado'].includes(order.status);
+
       root.innerHTML = `
         <div class="card">
           <p class="kicker">Pedido #${order.id}</p>
@@ -73,23 +76,32 @@
             <div><strong>Status:</strong> ${order.status_label || order.status}</div>
           </div>
           <div class="inline-actions" style="margin-top:16px;">
-            <label class="button">
-              Enviar comprovante
-              <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" class="hidden" data-proof-input>
-            </label>
-          <a class="button ghost" href="/api/front/pedidos/">Voltar às compras</a>
+            ${proofUrl ? `
+              <a class="button" href="${proofUrl}" target="_blank" rel="noreferrer">Abrir comprovante</a>
+            ` : ''}
+            ${canUploadProof ? `
+              <label class="button ${proofUrl ? 'secondary' : ''}">
+                ${proofUrl ? 'Trocar comprovante' : 'Enviar comprovante'}
+                <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" class="hidden" data-proof-input>
+              </label>
+            ` : ''}
+            <a class="button ghost" href="/api/front/pedidos/">Voltar às compras</a>
           </div>
-          <p class="muted small" style="margin-top:10px;">PNG, JPG, WEBP ou PDF de até 5MB.</p>
+          <p class="muted small" style="margin-top:10px;">
+            ${canUploadProof ? 'PNG, JPG, WEBP ou PDF de até 5MB.' : 'O comprovante já foi enviado e está aguardando análise da loja.'}
+          </p>
         </div>
       `;
 
       const input = root.querySelector('[data-proof-input]');
-      input.addEventListener('change', (event) => {
-        const file = event.target.files?.[0];
-        if (file) {
-          uploadProof(order.id, file).catch((error) => App.setFeedback(feedback, error.message || 'Não foi possível enviar o comprovante.', 'error'));
-        }
-      });
+      if (input) {
+        input.addEventListener('change', (event) => {
+          const file = event.target.files?.[0];
+          if (file) {
+            uploadProof(order.id, file).catch((error) => App.setFeedback(feedback, error.message || 'Não foi possível enviar o comprovante.', 'error'));
+          }
+        });
+      }
     };
 
     loadOrder()
